@@ -165,3 +165,18 @@ function abortEvent() {
             console.error('Error aborting event:', error);
         });
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Listen for any user gesture to initialize and warm up audio
+    function initAndWarmUp() {
+        initAudio();
+        // Ensure context is resumed before warming up
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume().then(warmUpAudio);
+        } else {
+            warmUpAudio();
+        }
+        document.removeEventListener('pointerdown', initAndWarmUp);
+    }
+    document.addEventListener('pointerdown', initAndWarmUp, { once: true });
+});
