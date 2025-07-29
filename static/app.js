@@ -7,6 +7,7 @@ let currentEvent = null;
 let activeButton = null;
 let audioContext = null;
 let isBeeping = false;
+let audioInitialized = false;
 
 // Initialize audio context on first user interaction
 function initAudio() {
@@ -24,6 +25,35 @@ function initAudio() {
     }
 }
 
+// Warm up audio system to prevent delays
+function warmUpAudio() {
+    if (!audioContext || audioInitialized) return;
+
+    try {
+        // Create a silent oscillator to warm up the audio system
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime); // Silent
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.001); // Very brief
+
+        oscillator.onended = () => {
+            oscillator.disconnect();
+            gainNode.disconnect();
+            audioInitialized = true;
+        };
+    } catch (error) {
+        console.warn('Error warming up audio:', error);
+    }
+}
+
 function playBeep() {
     // Prevent overlapping beeps
     if (isBeeping) return;
@@ -36,6 +66,17 @@ function playBeep() {
         return;
     }
 
+    // Warm up audio on first use
+    if (!audioInitialized) {
+        warmUpAudio();
+        // Small delay to ensure warm-up completes
+        setTimeout(() => playActualBeep(), 50);
+    } else {
+        playActualBeep();
+    }
+}
+
+function playActualBeep() {
     try {
         isBeeping = true;
         const oscillator = audioContext.createOscillator();
