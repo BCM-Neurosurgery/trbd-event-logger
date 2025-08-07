@@ -189,7 +189,7 @@ class EventLogger(QMainWindow):
                 QPushButton {{
                     background-color: {color};
                     color: white;
-                    border: 3px solid {color};
+                    border: 4px solid {color};
                 }}
                 QPushButton:hover {{
                     background-color: {hover_color};
@@ -197,11 +197,6 @@ class EventLogger(QMainWindow):
                 }}
                 QPushButton:pressed {{
                     background-color: {hover_color};
-                }}
-                QPushButton.active {{
-                    background-color: #2ecc71;
-                    border-color: #27ae60;
-                    border-width: 4px;
                 }}
             """
             )
@@ -278,9 +273,8 @@ class EventLogger(QMainWindow):
             start_time = self.active_events.pop(event_name)
             self.log_event(event_name, start_time, datetime.now(), notes)
 
-            # Update UI
-            button.setProperty("active", False)
-            button.setStyleSheet(button.styleSheet())  # Refresh style
+            # Update UI - restore original button style
+            self.restore_button_style(button, event_name)
             self.current_event = None
             self.active_button = None
             self.notes_input.clear()
@@ -292,31 +286,77 @@ class EventLogger(QMainWindow):
 
             # Deactivate previous button
             if self.active_button:
-                self.active_button.setProperty("active", False)
-                self.active_button.setStyleSheet(self.active_button.styleSheet())
+                for btn_name, btn in self.event_buttons.items():
+                    if btn == self.active_button:
+                        self.restore_button_style(btn, btn_name)
+                        break
 
             # Start new event
             self.active_events[event_name] = datetime.now()
 
-            # Update UI
-            button.setProperty("active", True)
-            button.setStyleSheet(
-                button.styleSheet()
-                + """
-                QPushButton {
-                    background-color: #2ecc71 !important;
-                    border-color: #27ae60 !important;
-                    border-width: 4px !important;
-                }
-            """
-            )
-
+            # Update UI - set active style
+            self.set_active_button_style(button)
             self.current_event = event_name
             self.active_button = button
             self.update_status(f"{event_name} has started")
 
         # Play audio feedback
         self.play_beep()
+
+    def get_button_config(self, event_name):
+        """Get the original color configuration for a button"""
+        buttons_config = {
+            "DBS Programming Session": ("#3498db", "#2980b9"),
+            "Clinical Interview": ("#e74c3c", "#c0392b"),
+            "Lounge Activity": ("#f39c12", "#e67e22"),
+            "Surprise": ("#9b59b6", "#8e44ad"),
+            "VR-PAAT": ("#1abc9c", "#16a085"),
+            "Sleep Period": ("#34495e", "#2c3e50"),
+            "Meal": ("#e67e22", "#d35400"),
+            "Social": ("#27ae60", "#229954"),
+            "Break": ("#f1c40f", "#f39c12"),
+            "Other": ("#95a5a6", "#7f8c8d"),
+        }
+        return buttons_config.get(event_name, ("#95a5a6", "#7f8c8d"))
+
+    def restore_button_style(self, button, event_name):
+        """Restore button to its original style"""
+        color, hover_color = self.get_button_config(event_name)
+        button.setStyleSheet(
+            f"""
+            QPushButton {{
+                background-color: {color};
+                color: white;
+                border: 4px solid {color};
+            }}
+            QPushButton:hover {{
+                background-color: {hover_color};
+                border-color: {hover_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {hover_color};
+            }}
+        """
+        )
+
+    def set_active_button_style(self, button):
+        """Set button to active (green) style"""
+        button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #2ecc71 !important;
+                color: white !important;
+                border: 4px solid #27ae60 !important;
+            }
+            QPushButton:hover {
+                background-color: #27ae60 !important;
+                border-color: #27ae60 !important;
+            }
+            QPushButton:pressed {
+                background-color: #27ae60 !important;
+            }
+        """
+        )
 
     def abort_event(self):
         """Abort the current active event"""
@@ -338,8 +378,7 @@ class EventLogger(QMainWindow):
 
         # Update UI
         if self.active_button:
-            self.active_button.setProperty("active", False)
-            self.active_button.setStyleSheet(self.active_button.styleSheet())
+            self.restore_button_style(self.active_button, event_name)
 
         self.current_event = None
         self.active_button = None
