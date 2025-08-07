@@ -18,12 +18,30 @@ Version: 1.0
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3, python3-pyqt6
+Depends: python3, python3-pip
 Maintainer: Baylor College of Medicine <your.email@bcm.edu>
 Description: TRBD Clinical Trial Event Logger
  A cross-platform desktop application for logging clinical events
  during TRBD Clinical Trial interactions.
 EOF
+
+# Create postinst script to install PyQt6 via pip
+cat > trbd-event-logger_1.0/DEBIAN/postinst << EOF
+#!/bin/bash
+set -e
+
+# Install PyQt6 via pip since it's not in Ubuntu repos by default
+pip3 install PyQt6
+
+# Update desktop database
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database
+fi
+
+exit 0
+EOF
+
+chmod +x trbd-event-logger_1.0/DEBIAN/postinst
 
 # Create desktop entry
 cat > trbd-event-logger_1.0/usr/share/applications/trbd-event-logger.desktop << EOF
