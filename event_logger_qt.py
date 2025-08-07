@@ -3,8 +3,8 @@
 Qt Event Logger for TRBD Clinical Trial
 Cross-platform desktop application with reliable audio feedback
 
-@author  Isha Chakraborty; Yewen
-@version 2.0 08/07/2025
+@author Yewen
+@version 1.0 08/07/2025
 """
 
 import sys
