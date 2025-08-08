@@ -25,7 +25,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-
+import tkinter as tk
+from tkinter import filedialog
+from pathlib import Path
 
 class EventLogger(QMainWindow):
     def __init__(self, project_id=""):
@@ -49,10 +51,22 @@ class EventLogger(QMainWindow):
         self.update_status("Press a button to start an event")
 
     def setup_data_file(self):
-        """Initialize CSV data file"""
-        time_stamp = datetime.now().strftime("%m%d_%H_%M")
-        output_folder = ""
+        """Initialize CSV data file and directory"""
+        date = datetime.now().strftime("%Y-%m-%d")
 
+        # Patient directory selection
+        root = tk.Tk()
+        root.withdraw()  # Hide the main Tkinter window
+        folder_path = filedialog.askdirectory(title="Select patient directory to save data")
+        root.destroy()  # Destroy the root window after selection
+        folder_path = Path(folder_path) / date
+        if not folder_path.exists():
+            folder_path.mkdir(parents=True, exist_ok=True)
+
+        time_stamp = datetime.now().strftime("%m%d_%H_%M")
+        output_folder = folder_path
+
+        # Create data file
         if self.project_id == "":
             self.data_file = os.path.join(output_folder, f"event_log_{time_stamp}.csv")
         else:
