@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QLineEdit,
     QFrame,
+    QFileDialog,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -55,10 +56,12 @@ class EventLogger(QMainWindow):
         date = datetime.now().strftime("%Y-%m-%d")
 
         # Patient directory selection
-        root = tk.Tk()
-        root.withdraw()  # Hide the main Tkinter window
-        folder_path = filedialog.askdirectory(title="Select patient directory to save data")
-        root.destroy()  # Destroy the root window after selection
+        folder_path = QFileDialog.getExistingDirectory(
+        None,
+        "Select patient folder to save event logs"
+        )
+
+        # Create date sub-directory if it doesn't exist
         folder_path = Path(folder_path) / date
         if not folder_path.exists():
             folder_path.mkdir(parents=True, exist_ok=True)
