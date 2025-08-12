@@ -26,8 +26,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-import tkinter as tk
-from tkinter import filedialog
 from pathlib import Path
 
 class EventLogger(QMainWindow):
