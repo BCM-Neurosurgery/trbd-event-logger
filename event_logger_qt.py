@@ -54,13 +54,16 @@ class EventLogger(QMainWindow):
         date = datetime.now().strftime("%Y-%m-%d")
 
         # Patient directory selection
-        folder_path = QFileDialog.getExistingDirectory(
+        root_path = QFileDialog.getExistingDirectory(
         None,
         "Select patient folder to save event logs"
         )
 
+        if root_path == '' or root_path is None:
+            root_path = Path(os.getcwd()) # Fallback to current working directory
+
         # Create date sub-directory if it doesn't exist
-        folder_path = Path(folder_path) / date
+        folder_path = Path(root_path) / date
         if not folder_path.exists():
             folder_path.mkdir(parents=True, exist_ok=True)
 
