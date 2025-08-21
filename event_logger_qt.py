@@ -22,9 +22,11 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QLineEdit,
     QFrame,
+    QFileDialog,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
+from pathlib import Path
 
 
 class EventLogger(QMainWindow):
@@ -49,10 +51,26 @@ class EventLogger(QMainWindow):
         self.update_status("Press a button to start an event")
 
     def setup_data_file(self):
-        """Initialize CSV data file"""
-        time_stamp = datetime.now().strftime("%m%d_%H_%M")
-        output_folder = ""
+        """Initialize CSV data file and directory"""
+        date = datetime.now().strftime("%Y-%m-%d")
 
+        # Patient directory selection
+        root_path = QFileDialog.getExistingDirectory(
+            None, "Select patient folder to save event logs"
+        )
+
+        if root_path == "" or root_path is None:
+            root_path = Path(os.getcwd())  # Fallback to current working directory
+
+        # Create date sub-directory if it doesn't exist
+        folder_path = Path(root_path) / date
+        if not folder_path.exists():
+            folder_path.mkdir(parents=True, exist_ok=True)
+
+        time_stamp = datetime.now().strftime("%m%d_%H_%M")
+        output_folder = folder_path
+
+        # Create data file
         if self.project_id == "":
             self.data_file = os.path.join(output_folder, f"event_log_{time_stamp}.csv")
         else:
