@@ -28,6 +28,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from pathlib import Path
 
+
 class EventLogger(QMainWindow):
     def __init__(self, project_id=""):
         super().__init__()
@@ -55,12 +56,11 @@ class EventLogger(QMainWindow):
 
         # Patient directory selection
         root_path = QFileDialog.getExistingDirectory(
-        None,
-        "Select patient folder to save event logs"
+            None, "Select patient folder to save event logs"
         )
 
-        if root_path == '' or root_path is None:
-            root_path = Path(os.getcwd()) # Fallback to current working directory
+        if root_path == "" or root_path is None:
+            root_path = Path(os.getcwd())  # Fallback to current working directory
 
         # Create date sub-directory if it doesn't exist
         folder_path = Path(root_path) / date
