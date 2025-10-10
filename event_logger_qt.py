@@ -172,15 +172,10 @@ class EventLogger(QMainWindow):
         """Create the grid of event buttons"""
         # Button configuration - matching your original layout
         buttons_config = [
-            ("DBS Programming Session", "#3498db", "#2980b9"),
-            ("Clinical Interview", "#e74c3c", "#c0392b"),
-            ("Lounge Activity", "#f39c12", "#e67e22"),
-            ("Surprise", "#9b59b6", "#8e44ad"),
-            ("VR-PAAT", "#1abc9c", "#16a085"),
-            ("Sleep Period", "#34495e", "#2c3e50"),
-            ("Meal", "#e67e22", "#d35400"),
-            ("Social", "#27ae60", "#229954"),
-            ("Break", "#f1c40f", "#f39c12"),
+            ("PRT", "#3498db", "#2980b9"),
+            ("PAAT", "#e74c3c", "#c0392b"),
+            ("Resting", "#f39c12", "#e67e22"),
+            ("ERP", "#9b59b6", "#8e44ad"),
             ("Other", "#95a5a6", "#7f8c8d"),
         ]
 
@@ -457,7 +452,7 @@ def main():
     app = QApplication(sys.argv)
 
     # Set application properties
-    app.setApplicationName("TRBD Event Logger")
+    app.setApplicationName("Jamail Event Logger")
     app.setApplicationVersion("2.0")
     app.setOrganizationName("Baylor College of Medicine")
 
