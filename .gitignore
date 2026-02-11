@@ -1,0 +1,24 @@
+# Virtual Environment
+venv/
+
+# Date-based event log folders (YYYY-MM-DD format)
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Log and data files
+*.log
+*.csv
