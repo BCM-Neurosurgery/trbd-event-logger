@@ -33,17 +33,135 @@ from PyQt6.QtGui import QFont
 from pathlib import Path
 
 
+class StartupDialog(QDialog):
+    """Startup dialog for session initialization"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.record_start = False
+        self.init_ui()
+
+    def init_ui(self):
+        """Initialize the startup dialog UI"""
+        self.setWindowTitle("TRBD Event Logger - Session Start")
+        self.setModal(True)
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(300)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(25)
+        layout.setContentsMargins(30, 30, 30, 30)
+
+        # Title
+        title_label = QLabel("Welcome to TRBD Event Logger")
+        title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("QLabel { color: #2c3e50; padding: 10px; }")
+        layout.addWidget(title_label)
+
+        # Subtitle
+        subtitle_label = QLabel("Do you want to record the session start time?")
+        subtitle_label.setFont(QFont("Arial", 13))
+        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle_label.setStyleSheet("QLabel { color: #34495e; padding: 10px; }")
+        layout.addWidget(subtitle_label)
+
+        # Spacer
+        layout.addStretch()
+
+        # Buttons layout
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(15)
+
+        # Record Session Start button
+        record_button = QPushButton("Record Session Start")
+        record_button.setFont(QFont("Arial", 13, QFont.Weight.Bold))
+        record_button.setMinimumHeight(60)
+        record_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: 3px solid #27ae60;
+                border-radius: 10px;
+                padding: 15px;
+            }
+            QPushButton:hover {
+                background-color: #229954;
+                border-color: #229954;
+            }
+            QPushButton:pressed {
+                background-color: #1e8449;
+            }
+        """
+        )
+        record_button.clicked.connect(self.record_and_continue)
+        buttons_layout.addWidget(record_button)
+
+        # Skip button
+        skip_button = QPushButton("Skip")
+        skip_button.setFont(QFont("Arial", 13, QFont.Weight.Bold))
+        skip_button.setMinimumHeight(60)
+        skip_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+                border: 3px solid #95a5a6;
+                border-radius: 10px;
+                padding: 15px;
+            }
+            QPushButton:hover {
+                background-color: #7f8c8d;
+                border-color: #7f8c8d;
+            }
+            QPushButton:pressed {
+                background-color: #707b7c;
+            }
+        """
+        )
+        skip_button.clicked.connect(self.skip_and_continue)
+        buttons_layout.addWidget(skip_button)
+
+        layout.addLayout(buttons_layout)
+        layout.addStretch()
+
+        # Apply general styling
+        self.setStyleSheet(
+            """
+            QDialog {
+                background-color: #f8f9fa;
+            }
+        """
+        )
+
+    def record_and_continue(self):
+        """Record session start and continue to main window"""
+        self.record_start = True
+        self.accept()
+
+    def skip_and_continue(self):
+        """Skip recording and continue to main window"""
+        self.record_start = False
+        self.accept()
+
+
 class EventLogger(QMainWindow):
-    def __init__(self, project_id=""):
+    def __init__(self, project_id="", record_session_start=False):
         super().__init__()
         self.project_id = project_id
         self.current_event = None
         self.active_button = None
         self.active_events = {}
         self.event_buttons = {}
+        self.session_start_time = None
 
         # Setup data file
         self.setup_data_file()
+
+        # Record session start if requested
+        if record_session_start:
+            self.record_session_start()
+        # If not recording, session_start_time remains None
 
         # Setup audio
         self.setup_audio()
@@ -95,6 +213,21 @@ class EventLogger(QMainWindow):
                         "Notes",
                     ]
                 )
+
+    def record_session_start(self):
+        """Record session start time to CSV"""
+        self.session_start_time = datetime.now()
+        with open(self.data_file, "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([
+                "SESSION START",
+                self.session_start_time.strftime("%Y-%m-%d"),
+                self.session_start_time.strftime("%H:%M:%S"),
+                "N/A",
+                "N/A",
+                "Session started"
+            ])
+        print(f"Session started at: {self.session_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
     def setup_audio(self):
         """Initialize audio system"""
@@ -262,6 +395,10 @@ class EventLogger(QMainWindow):
         )
         controls_layout.addWidget(self.notes_input)
 
+        # Buttons layout (horizontal)
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(10)
+
         # Abort button
         self.abort_button = QPushButton("Abort Current Event")
         self.abort_button.clicked.connect(self.abort_event)
@@ -283,7 +420,7 @@ class EventLogger(QMainWindow):
             }
         """
         )
-        controls_layout.addWidget(self.abort_button)
+        buttons_layout.addWidget(self.abort_button)
 
         # Missing Events button
         self.missing_event_button = QPushButton("Add Missing Events")
@@ -306,13 +443,116 @@ class EventLogger(QMainWindow):
             }
         """
         )
-        controls_layout.addWidget(self.missing_event_button)
+        buttons_layout.addWidget(self.missing_event_button)
+
+        controls_layout.addLayout(buttons_layout)
 
         layout.addWidget(controls_frame)
+
+        # End Session button at the bottom
+        self.end_session_button = QPushButton("End Session and Close")
+        self.end_session_button.clicked.connect(self.end_session)
+        self.end_session_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #8e44ad;
+                color: white;
+                border: 3px solid #8e44ad;
+                font-size: 18px;
+                font-weight: bold;
+                padding: 15px;
+            }
+            QPushButton:hover {
+                background-color: #7d3c98;
+                border-color: #7d3c98;
+            }
+            QPushButton:pressed {
+                background-color: #6c3483;
+            }
+        """
+        )
+        layout.addWidget(self.end_session_button)
 
     def update_status(self, message):
         """Update the status label"""
         self.status_label.setText(message)
+
+    def end_session(self):
+        """End the session, record end time, and close the application"""
+        # Log session end time
+        end_time = datetime.now()
+        
+        # Calculate duration
+        if self.session_start_time:
+            duration = end_time - self.session_start_time
+            # Format duration as HH:MM:SS
+            total_seconds = int(duration.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        else:
+            duration_str = "N/A"
+        
+        end_message = f"Session ended at: {end_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        # If there are active events, ask to abort them
+        if self.active_events:
+            reply = QMessageBox.question(
+                self,
+                "Active Event",
+                "There is an active event. Do you want to abort it before ending the session?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            )
+            
+            if reply == QMessageBox.StandardButton.Cancel:
+                return
+            elif reply == QMessageBox.StandardButton.Yes:
+                self.abort_event()
+        
+        # Write end session marker to CSV with start time, end time, and duration
+        with open(self.data_file, "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            if self.session_start_time:
+                writer.writerow([
+                    "SESSION END",
+                    self.session_start_time.strftime("%Y-%m-%d"),
+                    self.session_start_time.strftime("%H:%M:%S"),
+                    end_time.strftime("%Y-%m-%d"),
+                    end_time.strftime("%H:%M:%S"),
+                    f"Session ended, duration: {duration_str}"
+                ])
+            else:
+                # User skipped session start, so no start time recorded
+                writer.writerow([
+                    "SESSION END",
+                    "N/A",
+                    "N/A",
+                    end_time.strftime("%Y-%m-%d"),
+                    end_time.strftime("%H:%M:%S"),
+                    "Session ended, duration: N/A (session start was skipped)"
+                ])
+        
+        print(end_message)
+        if self.session_start_time:
+            print(f"Total session duration: {duration_str}")
+        else:
+            print("Session duration: N/A (session start was skipped)")
+        
+        # Show confirmation and close
+        if self.session_start_time:
+            message_text = f"{end_message}\nDuration: {duration_str}\n\nThe application will now close."
+        else:
+            message_text = f"{end_message}\nDuration: N/A (session start was skipped)\n\nThe application will now close."
+        
+        QMessageBox.information(
+            self,
+            "Session Ended",
+            message_text,
+        )
+        
+        # Close the application
+        self.close()
 
     def disable_all_buttons_except(self, active_button):
         """Disable all event buttons except the active one and set them to gray"""
@@ -746,8 +986,17 @@ def main():
     if len(sys.argv) >= 2:
         project_id = sys.argv[1]
 
+    # Show startup dialog
+    startup_dialog = StartupDialog()
+    if startup_dialog.exec() != QDialog.DialogCode.Accepted:
+        # User closed the dialog without choosing, exit app
+        sys.exit(0)
+
+    # Get whether to record session start
+    record_start = startup_dialog.record_start
+
     # Create and show the main window
-    window = EventLogger(project_id)
+    window = EventLogger(project_id, record_start)
     window.show()
 
     sys.exit(app.exec())
