@@ -568,6 +568,8 @@ class EventLogger(QMainWindow):
                     }
                 """
                 )
+        # Also disable the missing events button
+        self.missing_event_button.setEnabled(False)
 
     def enable_all_buttons(self):
         """Enable all event buttons and restore blue color"""
@@ -589,6 +591,8 @@ class EventLogger(QMainWindow):
                 }
             """
             )
+        # Also enable the missing events button
+        self.missing_event_button.setEnabled(True)
 
     def open_missing_event_dialog(self):
         """Open dialog for entering missing events"""
