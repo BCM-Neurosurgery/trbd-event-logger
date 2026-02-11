@@ -23,8 +23,12 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QFrame,
     QFileDialog,
+    QDialog,
+    QComboBox,
+    QTimeEdit,
+    QHBoxLayout,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTime
 from PyQt6.QtGui import QFont
 from pathlib import Path
 
@@ -170,18 +174,23 @@ class EventLogger(QMainWindow):
 
     def create_event_buttons(self, layout):
         """Create the grid of event buttons"""
-        # Button configuration - matching your original layout
+        # Button configuration - all buttons start with same blue color
         buttons_config = [
-            ("DBS Programming Session", "#3498db", "#2980b9"),
-            ("Clinical Interview", "#e74c3c", "#c0392b"),
-            ("Lounge Activity", "#f39c12", "#e67e22"),
-            ("Surprise", "#9b59b6", "#8e44ad"),
-            ("VR-PAAT", "#1abc9c", "#16a085"),
-            ("Sleep Period", "#34495e", "#2c3e50"),
-            ("Meal", "#e67e22", "#d35400"),
-            ("Social", "#27ae60", "#229954"),
-            ("Break", "#f1c40f", "#f39c12"),
-            ("Other", "#95a5a6", "#7f8c8d"),
+            "DBS Programming Session",
+            "Clinical Interview",
+            "Lounge Activity",
+            "Surprise",
+            "VR-PAAT",
+            "Sleep Period",
+            "Meal",
+            "Social",
+            "Break",
+            "IPG Charging",
+            "CTM Disconnect",
+            "Walk",
+            "Snack",
+            "Resting state",
+            "Other",
         ]
 
         # Create grid layout for buttons
@@ -189,8 +198,8 @@ class EventLogger(QMainWindow):
         button_layout = QGridLayout(button_frame)
         button_layout.setSpacing(15)
 
-        # Arrange buttons in a 5x2 grid
-        for i, (event_name, color, hover_color) in enumerate(buttons_config):
+        # Arrange buttons in a 5x3 grid
+        for i, event_name in enumerate(buttons_config):
             row = i // 5
             col = i % 5
 
@@ -201,21 +210,21 @@ class EventLogger(QMainWindow):
                 )
             )
 
-            # Style the button
+            # Style the button - all start with blue color
             button.setStyleSheet(
-                f"""
-                QPushButton {{
-                    background-color: {color};
+                """
+                QPushButton {
+                    background-color: #3498db;
                     color: white;
-                    border: 4px solid {color};
-                }}
-                QPushButton:hover {{
-                    background-color: {hover_color};
-                    border-color: {hover_color};
-                }}
-                QPushButton:pressed {{
-                    background-color: {hover_color};
-                }}
+                    border: 4px solid #3498db;
+                }
+                QPushButton:hover {
+                    background-color: #2980b9;
+                    border-color: #2980b9;
+                }
+                QPushButton:pressed {
+                    background-color: #2980b9;
+                }
             """
             )
 
@@ -276,11 +285,296 @@ class EventLogger(QMainWindow):
         )
         controls_layout.addWidget(self.abort_button)
 
+        # Missing Events button
+        self.missing_event_button = QPushButton("Add Missing Events")
+        self.missing_event_button.clicked.connect(self.open_missing_event_dialog)
+        self.missing_event_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: 3px solid #3498db;
+                font-size: 16px;
+                padding: 12px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+                border-color: #2980b9;
+            }
+            QPushButton:pressed {
+                background-color: #2471a3;
+            }
+        """
+        )
+        controls_layout.addWidget(self.missing_event_button)
+
         layout.addWidget(controls_frame)
 
     def update_status(self, message):
         """Update the status label"""
         self.status_label.setText(message)
+
+    def disable_all_buttons_except(self, active_button):
+        """Disable all event buttons except the active one and set them to gray"""
+        for button in self.event_buttons.values():
+            if button != active_button:
+                button.setEnabled(False)
+                button.setStyleSheet(
+                    """
+                    QPushButton {
+                        background-color: #95a5a6;
+                        color: white;
+                        border: 4px solid #95a5a6;
+                    }
+                """
+                )
+
+    def enable_all_buttons(self):
+        """Enable all event buttons and restore blue color"""
+        for button in self.event_buttons.values():
+            button.setEnabled(True)
+            button.setStyleSheet(
+                """
+                QPushButton {
+                    background-color: #3498db;
+                    color: white;
+                    border: 4px solid #3498db;
+                }
+                QPushButton:hover {
+                    background-color: #2980b9;
+                    border-color: #2980b9;
+                }
+                QPushButton:pressed {
+                    background-color: #2980b9;
+                }
+            """
+            )
+
+    def open_missing_event_dialog(self):
+        """Open dialog for entering missing events"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Missing Event")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(400)
+
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Title
+        title_label = QLabel("Enter Missing Event Details")
+        title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title_label)
+
+        # Event selection
+        event_label = QLabel("Select Event:")
+        event_label.setFont(QFont("Arial", 11))
+        layout.addWidget(event_label)
+
+        event_combo = QComboBox()
+        event_combo.addItems([
+            "DBS Programming Session",
+            "Clinical Interview",
+            "Lounge Activity",
+            "Surprise",
+            "VR-PAAT",
+            "Sleep Period",
+            "Meal",
+            "Social",
+            "Break",
+            "IPG Charging",
+            "CTM Disconnect",
+            "Walk",
+            "Snack",
+            "Resting state",
+            "Other",
+        ])
+        event_combo.setFont(QFont("Arial", 11))
+        event_combo.setStyleSheet(
+            """
+            QComboBox {
+                padding: 8px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+            }
+            QComboBox:focus {
+                border-color: #3498db;
+            }
+        """
+        )
+        layout.addWidget(event_combo)
+
+        # Start time
+        start_label = QLabel("Start Time:")
+        start_label.setFont(QFont("Arial", 11))
+        layout.addWidget(start_label)
+
+        start_time_edit = QTimeEdit()
+        start_time_edit.setDisplayFormat("HH:mm:ss")
+        start_time_edit.setTime(QTime.currentTime())
+        start_time_edit.setFont(QFont("Arial", 11))
+        start_time_edit.setStyleSheet(
+            """
+            QTimeEdit {
+                padding: 8px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+            }
+            QTimeEdit:focus {
+                border-color: #3498db;
+            }
+        """
+        )
+        layout.addWidget(start_time_edit)
+
+        # End time
+        end_label = QLabel("End Time:")
+        end_label.setFont(QFont("Arial", 11))
+        layout.addWidget(end_label)
+
+        end_time_edit = QTimeEdit()
+        end_time_edit.setDisplayFormat("HH:mm:ss")
+        end_time_edit.setTime(QTime.currentTime())
+        end_time_edit.setFont(QFont("Arial", 11))
+        end_time_edit.setStyleSheet(
+            """
+            QTimeEdit {
+                padding: 8px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+            }
+            QTimeEdit:focus {
+                border-color: #3498db;
+            }
+        """
+        )
+        layout.addWidget(end_time_edit)
+
+        # Optional notes
+        notes_label = QLabel("Optional Notes:")
+        notes_label.setFont(QFont("Arial", 11))
+        layout.addWidget(notes_label)
+
+        notes_input = QLineEdit()
+        notes_input.setPlaceholderText("Enter optional notes...")
+        notes_input.setFont(QFont("Arial", 11))
+        notes_input.setStyleSheet(
+            """
+            QLineEdit {
+                padding: 8px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+            }
+        """
+        )
+        layout.addWidget(notes_input)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(10)
+
+        submit_button = QPushButton("Submit")
+        submit_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        submit_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: 2px solid #27ae60;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #229954;
+                border-color: #229954;
+            }
+        """
+        )
+        submit_button.clicked.connect(
+            lambda: self.submit_missing_event(
+                dialog,
+                event_combo.currentText(),
+                start_time_edit.time(),
+                end_time_edit.time(),
+                notes_input.text(),
+            )
+        )
+        button_layout.addWidget(submit_button)
+
+        cancel_button = QPushButton("Cancel")
+        cancel_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        cancel_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+                border: 2px solid #95a5a6;
+                border-radius: 5px;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #7f8c8d;
+                border-color: #7f8c8d;
+            }
+        """
+        )
+        cancel_button.clicked.connect(dialog.reject)
+        button_layout.addWidget(cancel_button)
+
+        layout.addLayout(button_layout)
+
+        dialog.exec()
+
+    def submit_missing_event(self, dialog, event_name, start_qtime, end_qtime, user_notes=""):
+        """Submit missing event to CSV"""
+        # Get current date
+        current_date = datetime.now().strftime("%Y-%m-%d")
+
+        # Convert QTime to strings
+        start_time_str = start_qtime.toString("HH:mm:ss")
+        end_time_str = end_qtime.toString("HH:mm:ss")
+
+        # Validate that end time is after start time
+        if end_qtime <= start_qtime:
+            QMessageBox.warning(
+                dialog,
+                "Invalid Time Range",
+                "End time must be after start time.",
+            )
+            return
+
+        # Create datetime objects for logging
+        start_datetime = datetime.strptime(
+            f"{current_date} {start_time_str}", "%Y-%m-%d %H:%M:%S"
+        )
+        end_datetime = datetime.strptime(
+            f"{current_date} {end_time_str}", "%Y-%m-%d %H:%M:%S"
+        )
+
+        # Combine "Missing event" with user notes
+        notes = "Missing event"
+        if user_notes.strip():
+            notes += f": {user_notes.strip()}"
+
+        # Log the event
+        self.log_event(event_name, start_datetime, end_datetime, notes)
+
+        # Show confirmation
+        QMessageBox.information(
+            dialog,
+            "Success",
+            f"Missing event '{event_name}' has been logged successfully.",
+        )
+
+        # Play beep feedback
+        self.play_beep()
+
+        # Close dialog
+        dialog.accept()
 
     def toggle_event(self, event_name, button):
         """Toggle an event on/off"""
@@ -296,6 +590,7 @@ class EventLogger(QMainWindow):
             self.current_event = None
             self.active_button = None
             self.notes_input.clear()
+            self.enable_all_buttons()
             self.update_status("Press a button to start an event")
 
         else:
@@ -316,62 +611,46 @@ class EventLogger(QMainWindow):
             self.set_active_button_style(button)
             self.current_event = event_name
             self.active_button = button
+            self.disable_all_buttons_except(button)
             self.update_status(f"{event_name} has started")
 
         # Play audio feedback
         self.play_beep()
 
-    def get_button_config(self, event_name):
-        """Get the original color configuration for a button"""
-        buttons_config = {
-            "DBS Programming Session": ("#3498db", "#2980b9"),
-            "Clinical Interview": ("#e74c3c", "#c0392b"),
-            "Lounge Activity": ("#f39c12", "#e67e22"),
-            "Surprise": ("#9b59b6", "#8e44ad"),
-            "VR-PAAT": ("#1abc9c", "#16a085"),
-            "Sleep Period": ("#34495e", "#2c3e50"),
-            "Meal": ("#e67e22", "#d35400"),
-            "Social": ("#27ae60", "#229954"),
-            "Break": ("#f1c40f", "#f39c12"),
-            "Other": ("#95a5a6", "#7f8c8d"),
-        }
-        return buttons_config.get(event_name, ("#95a5a6", "#7f8c8d"))
-
     def restore_button_style(self, button, event_name):
-        """Restore button to its original style"""
-        color, hover_color = self.get_button_config(event_name)
+        """Restore button to its original blue style"""
         button.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {color};
+            """
+            QPushButton {
+                background-color: #3498db;
                 color: white;
-                border: 4px solid {color};
-            }}
-            QPushButton:hover {{
-                background-color: {hover_color};
-                border-color: {hover_color};
-            }}
-            QPushButton:pressed {{
-                background-color: {hover_color};
-            }}
+                border: 4px solid #3498db;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+                border-color: #2980b9;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
         """
         )
 
     def set_active_button_style(self, button):
-        """Set button to active (green) style"""
+        """Set button to active (teal) style"""
         button.setStyleSheet(
             """
             QPushButton {
-                background-color: #2ecc71 !important;
+                background-color: #1abc9c !important;
                 color: white !important;
-                border: 4px solid #27ae60 !important;
+                border: 4px solid #1abc9c !important;
             }
             QPushButton:hover {
-                background-color: #27ae60 !important;
-                border-color: #27ae60 !important;
+                background-color: #16a085 !important;
+                border-color: #16a085 !important;
             }
             QPushButton:pressed {
-                background-color: #27ae60 !important;
+                background-color: #16a085 !important;
             }
         """
         )
@@ -401,6 +680,7 @@ class EventLogger(QMainWindow):
         self.current_event = None
         self.active_button = None
         self.notes_input.clear()
+        self.enable_all_buttons()
         self.update_status("Event Aborted")
 
         # Play audio feedback
