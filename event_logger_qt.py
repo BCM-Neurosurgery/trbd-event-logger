@@ -32,12 +32,15 @@ from PyQt6.QtCore import Qt, QTime
 from PyQt6.QtGui import QFont
 from pathlib import Path
 
+VALID_IDS = ['AA', 'TRBD', 'P']
+STUDY_IDS = {'AA': 'AA-56119', 'TRBD': 'TRBD-53761', 'P': 'PerceptOCD-48392'}
+ROOT = Path('C:/jz/trbd-event-logger') # TODO: Change to root path on NBU laptop
 
 class StartupDialog(QDialog):
     """Startup dialog for session initialization"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.record_start = False
+        self.patient_id = None
         self.init_ui()
 
     def init_ui(self):
@@ -58,72 +61,58 @@ class StartupDialog(QDialog):
         title_label.setStyleSheet("QLabel { color: #2c3e50; padding: 10px; }")
         layout.addWidget(title_label)
 
-        # Subtitle
-        subtitle_label = QLabel("Do you want to record the session start time?")
-        subtitle_label.setFont(QFont("Arial", 13))
-        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle_label.setStyleSheet("QLabel { color: #34495e; padding: 10px; }")
-        layout.addWidget(subtitle_label)
+        # Patient ID section
+        patient_label = QLabel("Patient ID:")
+        patient_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        patient_label.setStyleSheet("QLabel { color: #2c3e50; }")
+        layout.addWidget(patient_label)
+
+        self.patient_id_input = QLineEdit()
+        self.patient_id_input.setPlaceholderText("Enter patient ID...")
+        self.patient_id_input.setFont(QFont("Arial", 12))
+        self.patient_id_input.setMinimumHeight(40)
+        self.patient_id_input.setStyleSheet(
+            """
+            QLineEdit {
+                padding: 10px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                font-size: 12px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #3498db;
+            }
+        """
+        )
+        layout.addWidget(self.patient_id_input)
 
         # Spacer
         layout.addStretch()
 
-        # Buttons layout
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(15)
-
-        # Record Session Start button
-        record_button = QPushButton("Record Session Start")
-        record_button.setFont(QFont("Arial", 13, QFont.Weight.Bold))
-        record_button.setMinimumHeight(60)
-        record_button.setStyleSheet(
+        # Continue button
+        continue_button = QPushButton("Continue")
+        continue_button.setFont(QFont("Arial", 13, QFont.Weight.Bold))
+        continue_button.setMinimumHeight(60)
+        continue_button.setStyleSheet(
             """
             QPushButton {
-                background-color: #27ae60;
+                background-color: #3498db;
                 color: white;
-                border: 3px solid #27ae60;
+                border: 3px solid #3498db;
                 border-radius: 10px;
                 padding: 15px;
             }
             QPushButton:hover {
-                background-color: #229954;
-                border-color: #229954;
+                background-color: #2980b9;
+                border-color: #2980b9;
             }
             QPushButton:pressed {
-                background-color: #1e8449;
+                background-color: #2471a3;
             }
         """
         )
-        record_button.clicked.connect(self.record_and_continue)
-        buttons_layout.addWidget(record_button)
-
-        # Skip button
-        skip_button = QPushButton("Skip")
-        skip_button.setFont(QFont("Arial", 13, QFont.Weight.Bold))
-        skip_button.setMinimumHeight(60)
-        skip_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #95a5a6;
-                color: white;
-                border: 3px solid #95a5a6;
-                border-radius: 10px;
-                padding: 15px;
-            }
-            QPushButton:hover {
-                background-color: #7f8c8d;
-                border-color: #7f8c8d;
-            }
-            QPushButton:pressed {
-                background-color: #707b7c;
-            }
-        """
-        )
-        skip_button.clicked.connect(self.skip_and_continue)
-        buttons_layout.addWidget(skip_button)
-
-        layout.addLayout(buttons_layout)
-        layout.addStretch()
+        continue_button.clicked.connect(self.on_continue)
+        layout.addWidget(continue_button)
 
         # Apply general styling
         self.setStyleSheet(
@@ -134,34 +123,34 @@ class StartupDialog(QDialog):
         """
         )
 
-    def record_and_continue(self):
-        """Record session start and continue to main window"""
-        self.record_start = True
-        self.accept()
-
-    def skip_and_continue(self):
-        """Skip recording and continue to main window"""
-        self.record_start = False
+    def on_continue(self):
+        """Validate patient ID and continue"""
+        if not self.patient_id_input.text().strip():
+            QMessageBox.warning(self, "Missing Patient ID", "Please enter a patient ID before continuing.")
+            return
+        self.patient_id = self.patient_id_input.text().strip()
+        if self.patient_id[:-3] not in VALID_IDS:
+            QMessageBox.warning(self, "Invalid Patient ID", f"Patient ID must start with a valid identifier ({', '.join(VALID_IDS)}).")
+            return
         self.accept()
 
 
 class EventLogger(QMainWindow):
-    def __init__(self, project_id="", record_session_start=False):
+    def __init__(self, patient_id=None):
         super().__init__()
-        self.project_id = project_id
+        self.patient_id = patient_id
         self.current_event = None
         self.active_button = None
         self.active_events = {}
         self.event_buttons = {}
-        self.session_start_time = None
+        self.record_start_time = False
+        self.run_parser = False
+
+        # Get study ID from patient ID
+        self.study_id = STUDY_IDS[self.patient_id[:-3]]
 
         # Setup data file
         self.setup_data_file()
-
-        # Record session start if requested
-        if record_session_start:
-            self.record_session_start()
-        # If not recording, session_start_time remains None
 
         # Setup audio
         self.setup_audio()
@@ -176,29 +165,25 @@ class EventLogger(QMainWindow):
         """Initialize CSV data file and directory"""
         date = datetime.now().strftime("%Y-%m-%d")
 
-        # Patient directory selection
-        root_path = QFileDialog.getExistingDirectory(
-            None, "Select patient folder to save event logs"
-        )
-
-        if root_path == "" or root_path is None:
-            root_path = Path(os.getcwd())  # Fallback to current working directory
+        # Patient directory selection TODO: Change to path on NBU laptop
+        root_path = ROOT / self.study_id / self.patient_id
 
         # Create date sub-directory if it doesn't exist
         folder_path = Path(root_path) / date
-        if not folder_path.exists():
-            folder_path.mkdir(parents=True, exist_ok=True)
+        
+        folder_path.mkdir(parents=True, exist_ok=True)
+
+        if not os.listdir(folder_path):
+            self.record_start_time = True
 
         time_stamp = datetime.now().strftime("%m%d_%H_%M")
         output_folder = folder_path
 
         # Create data file
-        if self.project_id == "":
-            self.data_file = os.path.join(output_folder, f"event_log_{time_stamp}.csv")
-        else:
-            self.data_file = os.path.join(
-                output_folder, f"{self.project_id}_event_log_{time_stamp}.csv"
-            )
+        
+        self.data_file = os.path.join(
+            output_folder, f"event_log_{time_stamp}.csv"
+        )
 
         if not os.path.exists(self.data_file):
             with open(self.data_file, "w", newline="") as csvfile:
@@ -213,6 +198,9 @@ class EventLogger(QMainWindow):
                         "Notes",
                     ]
                 )
+
+            if self.record_start_time:
+                self.record_session_start()
 
     def record_session_start(self):
         """Record session start time to CSV"""
@@ -257,8 +245,8 @@ class EventLogger(QMainWindow):
         layout.setContentsMargins(20, 20, 20, 20)
 
         # Project ID display (if provided)
-        if self.project_id:
-            project_label = QLabel(f"Project ID: {self.project_id}")
+        if self.study_id:
+            project_label = QLabel(f"Patient ID: {self.patient_id}")
             project_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
             project_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             project_label.setStyleSheet("QLabel { color: #2c3e50; padding: 10px; }")
@@ -552,6 +540,7 @@ class EventLogger(QMainWindow):
         )
         
         # Close the application
+        self.run_parser = True
         self.close()
 
     def disable_all_buttons_except(self, active_button):
@@ -985,11 +974,6 @@ def main():
     app.setApplicationVersion("2.0")
     app.setOrganizationName("Baylor College of Medicine")
 
-    # Get project ID from command line
-    project_id = ""
-    if len(sys.argv) >= 2:
-        project_id = sys.argv[1]
-
     # Show startup dialog
     startup_dialog = StartupDialog()
     if startup_dialog.exec() != QDialog.DialogCode.Accepted:
@@ -997,14 +981,18 @@ def main():
         sys.exit(0)
 
     # Get whether to record session start
-    record_start = startup_dialog.record_start
+    pt_id = startup_dialog.patient_id
 
     # Create and show the main window
-    window = EventLogger(project_id, record_start)
+    window = EventLogger(pt_id)
     window.show()
 
     sys.exit(app.exec())
 
+    # TODO: Run source parser if app properly closed
+    if window.run_parser:
+        pass
+        
 
 if __name__ == "__main__":
     main()

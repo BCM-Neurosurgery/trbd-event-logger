@@ -22,3 +22,8 @@ Thumbs.db
 # Log and data files
 *.log
 *.csv
+
+# App build
+dist/
+build/
+*.ico
