@@ -26,4 +26,4 @@ Thumbs.db
 # App build
 dist/
 build/
-*.ico
+
