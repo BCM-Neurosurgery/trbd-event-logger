@@ -299,18 +299,9 @@ class EventLogger(QMainWindow):
         buttons_config = [
             "DBS Programming Session",
             "Clinical Interview",
-            "Lounge Activity",
-            "Surprise",
-            "VR-PAAT",
-            "Sleep Period",
-            "Meal",
-            "Social",
-            "Break",
-            "IPG Charging",
-            "CTM Disconnect",
-            "Walk",
-            "Snack",
-            "Resting state",
+            "PRT",
+            "ERP",
+            "PAAT",
             "Other",
         ]
 
@@ -609,18 +600,9 @@ class EventLogger(QMainWindow):
         event_combo.addItems([
             "DBS Programming Session",
             "Clinical Interview",
-            "Lounge Activity",
-            "Surprise",
-            "VR-PAAT",
-            "Sleep Period",
-            "Meal",
-            "Social",
-            "Break",
-            "IPG Charging",
-            "CTM Disconnect",
-            "Walk",
-            "Snack",
-            "Resting state",
+            "ERP",
+            "PRT",
+            "PAAT",
             "Other",
         ])
         event_combo.setFont(QFont("Arial", 11))
@@ -970,7 +952,7 @@ def main():
     app = QApplication(sys.argv)
 
     # Set application properties
-    app.setApplicationName("TRBD Event Logger")
+    app.setApplicationName("Jamail Event Logger")
     app.setApplicationVersion("2.0")
     app.setOrganizationName("Baylor College of Medicine")
 
