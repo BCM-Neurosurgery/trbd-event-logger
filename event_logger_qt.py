@@ -9,6 +9,7 @@ Cross-platform desktop application with reliable audio feedback
 
 import sys
 import os
+import subprocess
 import csv
 from datetime import datetime
 from PyQt6.QtWidgets import (
@@ -34,7 +35,7 @@ from pathlib import Path
 
 VALID_IDS = ['AA', 'TRBD', 'P']
 STUDY_IDS = {'AA': 'AA-56119', 'TRBD': 'TRBD-53761', 'P': 'PerceptOCD-48392'}
-ROOT = Path('C:/jz/trbd-event-logger') # TODO: Change to root path on NBU laptop
+ROOT = Path('C:/NBU_Data/Logger') # TODO: Change to root path on NBU laptop
 
 class StartupDialog(QDialog):
     """Startup dialog for session initialization"""
@@ -143,6 +144,7 @@ class EventLogger(QMainWindow):
         self.active_button = None
         self.active_events = {}
         self.event_buttons = {}
+        self.session_start_time = None
         self.record_start_time = False
         self.run_parser = False
 
@@ -165,7 +167,6 @@ class EventLogger(QMainWindow):
         """Initialize CSV data file and directory"""
         date = datetime.now().strftime("%Y-%m-%d")
 
-        # Patient directory selection TODO: Change to path on NBU laptop
         root_path = ROOT / self.study_id / self.patient_id
 
         # Create date sub-directory if it doesn't exist
@@ -518,20 +519,20 @@ class EventLogger(QMainWindow):
                     "N/A",
                     end_time.strftime("%Y-%m-%d"),
                     end_time.strftime("%H:%M:%S"),
-                    "Session ended, duration: N/A (session start was skipped)"
+                    "Session ended, duration: N/A (session start recorded)"
                 ])
         
         print(end_message)
         if self.session_start_time:
             print(f"Total session duration: {duration_str}")
         else:
-            print("Session duration: N/A (session start was skipped)")
+            print("Session duration: N/A (session start recorded)")
         
         # Show confirmation and close
         if self.session_start_time:
             message_text = f"{end_message}\nDuration: {duration_str}\n\nThe application will now close."
         else:
-            message_text = f"{end_message}\nDuration: N/A (session start was skipped)\n\nThe application will now close."
+            message_text = f"{end_message}\nDuration: N/A (session start recorded)\n\nThe application will now close."
         
         QMessageBox.information(
             self,
@@ -987,12 +988,23 @@ def main():
     window = EventLogger(pt_id)
     window.show()
 
-    sys.exit(app.exec())
+    # Run the Qt event loop and capture its exit code so post-loop cleanup can run
+    exit_code = app.exec()
 
-    # TODO: Run source parser if app properly closed
-    if window.run_parser:
-        pass
-        
+    # Run source parser if app properly closed and flagged to run
+    if getattr(window, "run_parser", False):
+        logger_sp = r"C:\Users\kasra\OneDrive\Desktop\logger.bat"
+        try:
+            result = subprocess.run(logger_sp, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+            print(f'Logger source parser run, Check Elias for files')
+        except subprocess.CalledProcessError as e:
+            print('Error running logger source parser')
+            print(f'STDOUT: {e.stdout}')
+            print(f'STDERR: {e.stderr}')
+
+    # Exit with the same code returned by the Qt event loop
+    sys.exit(exit_code)
+
 
 if __name__ == "__main__":
     main()
