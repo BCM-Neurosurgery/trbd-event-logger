@@ -34,7 +34,7 @@ from pathlib import Path
 
 VALID_IDS = ['AA', 'TRBD', 'P']
 STUDY_IDS = {'AA': 'AA-56119', 'TRBD': 'TRBD-53761', 'P': 'PerceptOCD-48392'}
-ROOT = Path('C:/jz/trbd-event-logger') # TODO: Change to root path on NBU laptop
+ROOT = Path('C:/Users/prove/Desktop/Notes/') # TODO: Change to root path on NBU laptop
 
 class StartupDialog(QDialog):
     """Startup dialog for session initialization"""
@@ -45,7 +45,7 @@ class StartupDialog(QDialog):
 
     def init_ui(self):
         """Initialize the startup dialog UI"""
-        self.setWindowTitle("TRBD Event Logger - Session Start")
+        self.setWindowTitle("Jamail Event Logger - Session Start")
         self.setModal(True)
         self.setMinimumWidth(500)
         self.setMinimumHeight(300)
@@ -55,7 +55,7 @@ class StartupDialog(QDialog):
         layout.setContentsMargins(30, 30, 30, 30)
 
         # Title
-        title_label = QLabel("Welcome to TRBD Event Logger")
+        title_label = QLabel("Welcome to Jamail Event Logger")
         title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("QLabel { color: #2c3e50; padding: 10px; }")
@@ -143,7 +143,7 @@ class EventLogger(QMainWindow):
         self.active_button = None
         self.active_events = {}
         self.event_buttons = {}
-        self.record_start_time = False
+        self.record_start_time = True
         self.run_parser = False
 
         # Get study ID from patient ID
@@ -232,7 +232,7 @@ class EventLogger(QMainWindow):
 
     def init_ui(self):
         """Initialize the user interface"""
-        self.setWindowTitle("TRBD Event Logger")
+        self.setWindowTitle("Jamail Event Logger")
         self.setGeometry(100, 100, 800, 600)
 
         # Create central widget
@@ -302,6 +302,7 @@ class EventLogger(QMainWindow):
             "PRT",
             "ERP",
             "PAAT",
+            "Resting",
             "Other",
         ]
 
@@ -603,6 +604,7 @@ class EventLogger(QMainWindow):
             "ERP",
             "PRT",
             "PAAT",
+            "Resting",
             "Other",
         ])
         event_combo.setFont(QFont("Arial", 11))
