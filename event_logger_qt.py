@@ -33,9 +33,7 @@ from PyQt6.QtCore import Qt, QTime
 from PyQt6.QtGui import QFont
 from pathlib import Path
 
-VALID_IDS = ['AA', 'TRBD', 'P']
-STUDY_IDS = {'AA': 'AA-56119', 'TRBD': 'TRBD-53761', 'P': 'PerceptOCD-48392'}
-ROOT = Path('C:/NBU_Data/Logger') # TODO: Change to root path on NBU laptop
+from config import VALID_IDS, STUDY_IDS, ROOT, EVENTS, SOURCE_PARSER
 
 class StartupDialog(QDialog):
     """Startup dialog for session initialization"""
@@ -297,23 +295,7 @@ class EventLogger(QMainWindow):
     def create_event_buttons(self, layout):
         """Create the grid of event buttons"""
         # Button configuration - all buttons start with same blue color
-        buttons_config = [
-            "DBS Programming Session",
-            "Clinical Interview",
-            "Lounge Activity",
-            "Surprise",
-            "VR-PAAT",
-            "Sleep Period",
-            "Meal",
-            "Social",
-            "Break",
-            "IPG Charging",
-            "CTM Disconnect",
-            "Walk",
-            "Snack",
-            "Resting state",
-            "Other",
-        ]
+        buttons_config = EVENTS
 
         # Create grid layout for buttons
         button_frame = QFrame()
@@ -971,7 +953,7 @@ def main():
     app = QApplication(sys.argv)
 
     # Set application properties
-    app.setApplicationName("TRBD Event Logger")
+    app.setApplicationName("Event Logger")
     app.setApplicationVersion("2.0")
     app.setOrganizationName("Baylor College of Medicine")
 
@@ -993,7 +975,7 @@ def main():
 
     # Run source parser if app properly closed and flagged to run
     if getattr(window, "run_parser", False):
-        logger_sp = r"C:\Users\kasra\OneDrive\Desktop\logger.bat"
+        logger_sp = SOURCE_PARSER
         try:
             result = subprocess.run(logger_sp, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
             print(f'Logger source parser run, Check Elias for files')
