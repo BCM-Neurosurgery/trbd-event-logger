@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-Qt Event Logger for TRBD Clinical Trial
+Qt Event Logger
 Cross-platform desktop application with reliable audio feedback
 
 @author Yewen
 @version 1.0 08/07/2025
+
+@author Nikhil, Jeff
+@version 2.0 02/23/2026
 """
 
 import sys
@@ -44,7 +47,7 @@ class StartupDialog(QDialog):
 
     def init_ui(self):
         """Initialize the startup dialog UI"""
-        self.setWindowTitle("TRBD Event Logger - Session Start")
+        self.setWindowTitle("Event Logger - Session Start")
         self.setModal(True)
         self.setMinimumWidth(500)
         self.setMinimumHeight(300)
@@ -54,7 +57,7 @@ class StartupDialog(QDialog):
         layout.setContentsMargins(30, 30, 30, 30)
 
         # Title
-        title_label = QLabel("Welcome to TRBD Event Logger")
+        title_label = QLabel("Welcome to Event Logger")
         title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("QLabel { color: #2c3e50; padding: 10px; }")
@@ -231,7 +234,7 @@ class EventLogger(QMainWindow):
 
     def init_ui(self):
         """Initialize the user interface"""
-        self.setWindowTitle("TRBD Event Logger")
+        self.setWindowTitle("Event Logger")
         self.setGeometry(100, 100, 800, 600)
 
         # Create central widget
@@ -589,23 +592,7 @@ class EventLogger(QMainWindow):
         layout.addWidget(event_label)
 
         event_combo = QComboBox()
-        event_combo.addItems([
-            "DBS Programming Session",
-            "Clinical Interview",
-            "Lounge Activity",
-            "Surprise",
-            "VR-PAAT",
-            "Sleep Period",
-            "Meal",
-            "Social",
-            "Break",
-            "IPG Charging",
-            "CTM Disconnect",
-            "Walk",
-            "Snack",
-            "Resting state",
-            "Other",
-        ])
+        event_combo.addItems(EVENTS)
         event_combo.setFont(QFont("Arial", 11))
         event_combo.setStyleSheet(
             """
