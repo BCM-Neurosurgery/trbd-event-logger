@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-Qt Event Logger for TRBD Clinical Trial
+Unified Event Logger for TRBD Clinical Trial
+Supports multiple deployment configurations (Jamail, NBU)
 Cross-platform desktop application with reliable audio feedback
 
 @author Yewen
-@version 1.0 08/07/2025
+@version 2.0 02/18/2026
 """
 
 import sys
 import os
 import csv
+import subprocess
 from datetime import datetime
+from pathlib import Path
+
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -24,136 +28,67 @@ from PyQt6.QtWidgets import (
     QFrame,
     QFileDialog,
     QDialog,
-    QComboBox,
-    QTimeEdit,
     QHBoxLayout,
 )
-from PyQt6.QtCore import Qt, QTime
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from pathlib import Path
 
-
-class StartupDialog(QDialog):
-    """Startup dialog for session initialization"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.record_start = False
-        self.init_ui()
-
-    def init_ui(self):
-        """Initialize the startup dialog UI"""
-        self.setWindowTitle("TRBD Event Logger - Session Start")
-        self.setModal(True)
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(300)
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(25)
-        layout.setContentsMargins(30, 30, 30, 30)
-
-        # Title
-        title_label = QLabel("Welcome to TRBD Event Logger")
-        title_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet("QLabel { color: #2c3e50; padding: 10px; }")
-        layout.addWidget(title_label)
-
-        # Subtitle
-        subtitle_label = QLabel("Do you want to record the session start time?")
-        subtitle_label.setFont(QFont("Arial", 13))
-        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle_label.setStyleSheet("QLabel { color: #34495e; padding: 10px; }")
-        layout.addWidget(subtitle_label)
-
-        # Spacer
-        layout.addStretch()
-
-        # Buttons layout
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(15)
-
-        # Record Session Start button
-        record_button = QPushButton("Record Session Start")
-        record_button.setFont(QFont("Arial", 13, QFont.Weight.Bold))
-        record_button.setMinimumHeight(60)
-        record_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: 3px solid #27ae60;
-                border-radius: 10px;
-                padding: 15px;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-                border-color: #229954;
-            }
-            QPushButton:pressed {
-                background-color: #1e8449;
-            }
-        """
-        )
-        record_button.clicked.connect(self.record_and_continue)
-        buttons_layout.addWidget(record_button)
-
-        # Skip button
-        skip_button = QPushButton("Skip")
-        skip_button.setFont(QFont("Arial", 13, QFont.Weight.Bold))
-        skip_button.setMinimumHeight(60)
-        skip_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #95a5a6;
-                color: white;
-                border: 3px solid #95a5a6;
-                border-radius: 10px;
-                padding: 15px;
-            }
-            QPushButton:hover {
-                background-color: #7f8c8d;
-                border-color: #7f8c8d;
-            }
-            QPushButton:pressed {
-                background-color: #707b7c;
-            }
-        """
-        )
-        skip_button.clicked.connect(self.skip_and_continue)
-        buttons_layout.addWidget(skip_button)
-
-        layout.addLayout(buttons_layout)
-        layout.addStretch()
-
-        # Apply general styling
-        self.setStyleSheet(
-            """
-            QDialog {
-                background-color: #f8f9fa;
-            }
-        """
-        )
-
-    def record_and_continue(self):
-        """Record session start and continue to main window"""
-        self.record_start = True
-        self.accept()
-
-    def skip_and_continue(self):
-        """Skip recording and continue to main window"""
-        self.record_start = False
-        self.accept()
+# Import from our modules
+from config import AppConfig, CONFIGS
+from constants import (
+    CSV_HEADERS,
+    MAIN_WINDOW_SIZE,
+    BUTTON_GRID_COLUMNS,
+    BUTTON_GRID_SPACING,
+    DEFAULT_FONT_FAMILY,
+)
+from styles import (
+    MAIN_WINDOW_STYLE,
+    PROJECT_ID_STYLE,
+    STATUS_LABEL_STYLE,
+    EVENT_BUTTON_NORMAL_STYLE,
+    EVENT_BUTTON_ACTIVE_STYLE,
+    EVENT_BUTTON_DISABLED_STYLE,
+    CONTROLS_FRAME_STYLE,
+    NOTES_INPUT_STYLE,
+    ABORT_BUTTON_STYLE,
+    MISSING_EVENTS_BUTTON_STYLE,
+    END_SESSION_BUTTON_STYLE,
+    MESSAGE_BOX_INFO_STYLE,
+    MESSAGE_BOX_WARNING_STYLE,
+    MESSAGE_BOX_QUESTION_STYLE,
+)
+from dialogs import ConfigSelectionDialog, StartupDialog, MissingEventDialog
+from utils import (
+    calculate_duration,
+    log_to_csv,
+    show_info_message,
+    show_warning_message,
+    show_question_message,
+    get_current_date_folder,
+    format_datetime_for_display,
+)
 
 
 class EventLogger(QMainWindow):
-    def __init__(self, project_id="", record_session_start=False):
+    """Main event logger application window"""
+    
+    def __init__(self, config, patient_id="", record_session_start=False):
         super().__init__()
-        self.project_id = project_id
+        self.config = config
+        self.patient_id = patient_id
         self.current_event = None
         self.active_button = None
         self.active_events = {}
         self.event_buttons = {}
         self.session_start_time = None
+        self.run_parser = config.run_parser
+
+        # Get study ID from patient ID if provided
+        if patient_id:
+            self.study_id = config.get_study_id(patient_id)
+        else:
+            self.study_id = "DefaultStudy"
 
         # Setup data file
         self.setup_data_file()
@@ -161,7 +96,6 @@ class EventLogger(QMainWindow):
         # Record session start if requested
         if record_session_start:
             self.record_session_start()
-        # If not recording, session_start_time remains None
 
         # Setup audio
         self.setup_audio()
@@ -174,45 +108,40 @@ class EventLogger(QMainWindow):
 
     def setup_data_file(self):
         """Initialize CSV data file and directory"""
-        date = datetime.now().strftime("%Y-%m-%d")
+        date_folder = get_current_date_folder()
 
-        # Patient directory selection
-        root_path = QFileDialog.getExistingDirectory(
-            None, "Select patient folder to save event logs"
-        )
-
-        if root_path == "" or root_path is None:
-            root_path = Path(os.getcwd())  # Fallback to current working directory
+        # Use configured root path or ask for patient directory
+        if self.patient_id and self.config.root_path:
+            # Use structured path: ROOT/StudyID/PatientID/Date
+            root_path = self.config.root_path / self.study_id / self.patient_id
+        else:
+            # Ask user to select directory
+            selected_path = QFileDialog.getExistingDirectory(
+                None, "Select patient folder to save event logs"
+            )
+            if selected_path:
+                root_path = Path(selected_path)
+            else:
+                root_path = Path(os.getcwd())  # Fallback
 
         # Create date sub-directory if it doesn't exist
-        folder_path = Path(root_path) / date
-        if not folder_path.exists():
-            folder_path.mkdir(parents=True, exist_ok=True)
+        folder_path = root_path / date_folder
+        folder_path.mkdir(parents=True, exist_ok=True)
 
-        time_stamp = datetime.now().strftime("%m%d_%H_%M")
-        output_folder = folder_path
+        # Get filename with timestamp (including seconds to avoid collisions)
+        filename = datetime.now().strftime("event_log_%m%d_%H_%M_%S.csv")
+        
+        # Add patient ID prefix if provided
+        if self.patient_id:
+            filename = f"{self.patient_id}_{filename}"
 
-        # Create data file
-        if self.project_id == "":
-            self.data_file = os.path.join(output_folder, f"event_log_{time_stamp}.csv")
-        else:
-            self.data_file = os.path.join(
-                output_folder, f"{self.project_id}_event_log_{time_stamp}.csv"
-            )
+        self.data_file = os.path.join(folder_path, filename)
 
+        # Create CSV file with headers
         if not os.path.exists(self.data_file):
             with open(self.data_file, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow(
-                    [
-                        "Event",
-                        "Start Date",
-                        "Start Time",
-                        "End Date",
-                        "End Time",
-                        "Notes",
-                    ]
-                )
+                writer.writerow(CSV_HEADERS)
 
     def record_session_start(self):
         """Record session start time to CSV"""
@@ -227,7 +156,7 @@ class EventLogger(QMainWindow):
                 "N/A",
                 "Session started"
             ])
-        print(f"Session started at: {self.session_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Session started at: {format_datetime_for_display(self.session_start_time)}")
 
     def setup_audio(self):
         """Initialize audio system"""
@@ -237,15 +166,14 @@ class EventLogger(QMainWindow):
     def play_beep(self):
         """Play audio feedback - guaranteed to work"""
         try:
-            # Most reliable method - system beep
             QApplication.beep()
         except Exception as e:
             print(f"Audio playback error: {e}")
 
     def init_ui(self):
         """Initialize the user interface"""
-        self.setWindowTitle("TRBD Event Logger")
-        self.setGeometry(100, 100, 800, 600)
+        self.setWindowTitle(self.config.app_name)
+        self.setGeometry(100, 100, *MAIN_WINDOW_SIZE)
 
         # Create central widget
         central_widget = QWidget()
@@ -253,33 +181,29 @@ class EventLogger(QMainWindow):
 
         # Main layout
         layout = QVBoxLayout(central_widget)
-        layout.setSpacing(20)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(25)
+        layout.setContentsMargins(30, 30, 30, 30)
 
-        # Project ID display (if provided)
-        if self.project_id:
-            project_label = QLabel(f"Project ID: {self.project_id}")
-            project_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-            project_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            project_label.setStyleSheet("QLabel { color: #2c3e50; padding: 10px; }")
-            layout.addWidget(project_label)
+        # Patient ID display (if provided)
+        if self.patient_id:
+            patient_label = QLabel(f"👤 Patient ID: {self.patient_id} | Study: {self.study_id}")
+            patient_label.setFont(QFont(DEFAULT_FONT_FAMILY, 12, QFont.Weight.Bold))
+            patient_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            patient_label.setStyleSheet(PROJECT_ID_STYLE)
+            layout.addWidget(patient_label)
+
+        # Configuration indicator
+        config_label = QLabel(f"⚙️ Configuration: {self.config.config_name}")
+        config_label.setFont(QFont(DEFAULT_FONT_FAMILY, 10))
+        config_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        config_label.setStyleSheet("QLabel { color: #7f8c8d; padding: 5px; }")
+        layout.addWidget(config_label)
 
         # Status display
         self.status_label = QLabel("Press a button to start an event")
-        self.status_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        self.status_label.setFont(QFont(DEFAULT_FONT_FAMILY, 15, QFont.Weight.Bold))
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: #ecf0f1;
-                color: #2c3e50;
-                border: 2px solid #bdc3c7;
-                border-radius: 10px;
-                padding: 15px;
-                min-height: 20px;
-            }
-        """
-        )
+        self.status_label.setStyleSheet(STATUS_LABEL_STYLE)
         layout.addWidget(self.status_label)
 
         # Event buttons grid
@@ -289,77 +213,30 @@ class EventLogger(QMainWindow):
         self.create_controls(layout)
 
         # Apply general styling
-        self.setStyleSheet(
-            """
-            QMainWindow {
-                background-color: #f8f9fa;
-            }
-            QPushButton {
-                font-size: 14px;
-                font-weight: bold;
-                padding: 15px;
-                border-radius: 10px;
-                border: 2px solid transparent;
-                min-height: 20px;
-            }
-        """
-        )
+        self.setStyleSheet(MAIN_WINDOW_STYLE)
 
     def create_event_buttons(self, layout):
-        """Create the grid of event buttons"""
-        # Button configuration - all buttons start with same blue color
-        buttons_config = [
-            "DBS Programming Session",
-            "Clinical Interview",
-            "Lounge Activity",
-            "Surprise",
-            "VR-PAAT",
-            "Sleep Period",
-            "Meal",
-            "Social",
-            "Break",
-            "IPG Charging",
-            "CTM Disconnect",
-            "Walk",
-            "Snack",
-            "Resting state",
-            "Other",
-        ]
-
+        """Create the grid of event buttons from configuration"""
         # Create grid layout for buttons
         button_frame = QFrame()
+        button_frame.setStyleSheet("QFrame { background-color: transparent; }")
         button_layout = QGridLayout(button_frame)
-        button_layout.setSpacing(15)
+        button_layout.setSpacing(BUTTON_GRID_SPACING)
 
-        # Arrange buttons in a 5x3 grid
-        for i, event_name in enumerate(buttons_config):
-            row = i // 5
-            col = i % 5
+        # Get events from configuration
+        events = self.config.events
 
-            button = QPushButton(event_name)
+        # Arrange buttons in a grid
+        for i, (display_name, event_name) in enumerate(events):
+            row = i // BUTTON_GRID_COLUMNS
+            col = i % BUTTON_GRID_COLUMNS
+
+            button = QPushButton(display_name)
+            button.setFont(QFont(DEFAULT_FONT_FAMILY, 12, QFont.Weight.DemiBold))
             button.clicked.connect(
-                lambda checked, name=event_name, btn=button: self.toggle_event(
-                    name, btn
-                )
+                lambda checked, name=event_name, btn=button: self.toggle_event(name, btn)
             )
-
-            # Style the button - all start with blue color
-            button.setStyleSheet(
-                """
-                QPushButton {
-                    background-color: #3498db;
-                    color: white;
-                    border: 4px solid #3498db;
-                }
-                QPushButton:hover {
-                    background-color: #2980b9;
-                    border-color: #2980b9;
-                }
-                QPushButton:pressed {
-                    background-color: #2980b9;
-                }
-            """
-            )
+            button.setStyleSheet(EVENT_BUTTON_NORMAL_STYLE)
 
             self.event_buttons[event_name] = button
             button_layout.addWidget(button, row, col)
@@ -367,110 +244,51 @@ class EventLogger(QMainWindow):
         layout.addWidget(button_frame)
 
     def create_controls(self, layout):
-        """Create the notes input and abort button"""
+        """Create the notes input and control buttons"""
         controls_frame = QFrame()
+        controls_frame.setStyleSheet(CONTROLS_FRAME_STYLE)
         controls_layout = QVBoxLayout(controls_frame)
-        controls_layout.setSpacing(10)
+        controls_layout.setSpacing(15)
+        controls_layout.setContentsMargins(20, 20, 20, 20)
 
         # Notes input
-        notes_label = QLabel("Optional Notes (only while event active):")
-        notes_label.setFont(QFont("Arial", 11))
+        notes_label = QLabel("📝 Optional Notes (only while event active):")
+        notes_label.setFont(QFont(DEFAULT_FONT_FAMILY, 11, QFont.Weight.DemiBold))
+        notes_label.setStyleSheet("QLabel { color: #34495e; }")
         controls_layout.addWidget(notes_label)
 
         self.notes_input = QLineEdit()
         self.notes_input.setPlaceholderText("Enter optional notes...")
-        self.notes_input.setFont(QFont("Arial", 12))
-        self.notes_input.setStyleSheet(
-            """
-            QLineEdit {
-                padding: 10px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-                font-size: 12px;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-            }
-        """
-        )
+        self.notes_input.setFont(QFont(DEFAULT_FONT_FAMILY, 11))
+        self.notes_input.setStyleSheet(NOTES_INPUT_STYLE)
         controls_layout.addWidget(self.notes_input)
 
         # Buttons layout (horizontal)
         buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(10)
+        buttons_layout.setSpacing(12)
 
         # Abort button
-        self.abort_button = QPushButton("Abort Current Event")
+        self.abort_button = QPushButton("⚠️ Abort Current Event")
+        self.abort_button.setFont(QFont(DEFAULT_FONT_FAMILY, 12, QFont.Weight.Bold))
         self.abort_button.clicked.connect(self.abort_event)
-        self.abort_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: 3px solid #e74c3c;
-                font-size: 16px;
-                padding: 12px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-                border-color: #c0392b;
-            }
-            QPushButton:pressed {
-                background-color: #a93226;
-            }
-        """
-        )
+        self.abort_button.setStyleSheet(ABORT_BUTTON_STYLE)
         buttons_layout.addWidget(self.abort_button)
 
         # Missing Events button
-        self.missing_event_button = QPushButton("Add Missing Events")
+        self.missing_event_button = QPushButton("➕ Add Missing Events")
+        self.missing_event_button.setFont(QFont(DEFAULT_FONT_FAMILY, 12, QFont.Weight.Bold))
         self.missing_event_button.clicked.connect(self.open_missing_event_dialog)
-        self.missing_event_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                border: 3px solid #3498db;
-                font-size: 16px;
-                padding: 12px;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-                border-color: #2980b9;
-            }
-            QPushButton:pressed {
-                background-color: #2471a3;
-            }
-        """
-        )
+        self.missing_event_button.setStyleSheet(MISSING_EVENTS_BUTTON_STYLE)
         buttons_layout.addWidget(self.missing_event_button)
 
         controls_layout.addLayout(buttons_layout)
-
         layout.addWidget(controls_frame)
 
         # End Session button at the bottom
-        self.end_session_button = QPushButton("End Session and Close")
+        self.end_session_button = QPushButton("🔚 End Session and Close")
+        self.end_session_button.setFont(QFont(DEFAULT_FONT_FAMILY, 14, QFont.Weight.Bold))
         self.end_session_button.clicked.connect(self.end_session)
-        self.end_session_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #8e44ad;
-                color: white;
-                border: 3px solid #8e44ad;
-                font-size: 18px;
-                font-weight: bold;
-                padding: 15px;
-            }
-            QPushButton:hover {
-                background-color: #7d3c98;
-                border-color: #7d3c98;
-            }
-            QPushButton:pressed {
-                background-color: #6c3483;
-            }
-        """
-        )
+        self.end_session_button.setStyleSheet(END_SESSION_BUTTON_STYLE)
         layout.addWidget(self.end_session_button)
 
     def update_status(self, message):
@@ -479,38 +297,32 @@ class EventLogger(QMainWindow):
 
     def end_session(self):
         """End the session, record end time, and close the application"""
-        # Log session end time
         end_time = datetime.now()
         
         # Calculate duration
-        if self.session_start_time:
-            duration = end_time - self.session_start_time
-            # Format duration as HH:MM:SS
-            total_seconds = int(duration.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-        else:
-            duration_str = "N/A"
-        
-        end_message = f"Session ended at: {end_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        duration_str = calculate_duration(self.session_start_time, end_time)
+        end_message = f"Session ended at: {format_datetime_for_display(end_time)}"
         
         # If there are active events, ask to abort them
         if self.active_events:
-            reply = QMessageBox.question(
-                self,
-                "Active Event",
-                "There is an active event. Do you want to abort it before ending the session?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setWindowTitle("Active Event")
+            msg_box.setText("There is an active event. Do you want to abort it before ending the session?")
+            msg_box.setStandardButtons(
+                QMessageBox.StandardButton.Yes | 
+                QMessageBox.StandardButton.No | 
+                QMessageBox.StandardButton.Cancel
             )
+            msg_box.setStyleSheet(MESSAGE_BOX_QUESTION_STYLE)
+            reply = msg_box.exec()
             
             if reply == QMessageBox.StandardButton.Cancel:
                 return
             elif reply == QMessageBox.StandardButton.Yes:
                 self.abort_event()
         
-        # Write end session marker to CSV with start time, end time, and duration
+        # Write end session marker to CSV
         with open(self.data_file, "a", newline="") as csvfile:
             writer = csv.writer(csvfile)
             if self.session_start_time:
@@ -523,253 +335,57 @@ class EventLogger(QMainWindow):
                     f"Session ended, duration: {duration_str}"
                 ])
             else:
-                # User skipped session start, so no start time recorded
                 writer.writerow([
                     "SESSION END",
                     "N/A",
                     "N/A",
                     end_time.strftime("%Y-%m-%d"),
                     end_time.strftime("%H:%M:%S"),
-                    "Session ended, duration: N/A (session start was skipped)"
+                    "Session ended, duration: N/A (session start not recorded)"
                 ])
         
         print(end_message)
-        if self.session_start_time:
-            print(f"Total session duration: {duration_str}")
-        else:
-            print("Session duration: N/A (session start was skipped)")
+        print(f"Total session duration: {duration_str}")
         
         # Show confirmation and close
         if self.session_start_time:
             message_text = f"{end_message}\nDuration: {duration_str}\n\nThe application will now close."
         else:
-            message_text = f"{end_message}\nDuration: N/A (session start was skipped)\n\nThe application will now close."
+            message_text = f"{end_message}\nDuration: N/A (session start not recorded)\n\nThe application will now close."
         
-        QMessageBox.information(
-            self,
-            "Session Ended",
-            message_text,
-        )
-        
-        # Close the application
-        self.close()
+        show_info_message(self, "Session Ended", message_text)
+        QApplication.instance().quit()
 
     def disable_all_buttons_except(self, active_button):
-        """Disable all event buttons except the active one and set them to gray"""
+        """Disable all event buttons except the active one"""
         for button in self.event_buttons.values():
             if button != active_button:
                 button.setEnabled(False)
-                button.setStyleSheet(
-                    """
-                    QPushButton {
-                        background-color: #95a5a6;
-                        color: white;
-                        border: 4px solid #95a5a6;
-                    }
-                """
-                )
+                button.setStyleSheet(EVENT_BUTTON_DISABLED_STYLE)
+        
+        # Also disable the missing events button
+        self.missing_event_button.setEnabled(False)
 
     def enable_all_buttons(self):
-        """Enable all event buttons and restore blue color"""
+        """Enable all event buttons and restore normal style"""
         for button in self.event_buttons.values():
             button.setEnabled(True)
-            button.setStyleSheet(
-                """
-                QPushButton {
-                    background-color: #3498db;
-                    color: white;
-                    border: 4px solid #3498db;
-                }
-                QPushButton:hover {
-                    background-color: #2980b9;
-                    border-color: #2980b9;
-                }
-                QPushButton:pressed {
-                    background-color: #2980b9;
-                }
-            """
-            )
+            button.setStyleSheet(EVENT_BUTTON_NORMAL_STYLE)
+        
+        # Also enable the missing events button
+        self.missing_event_button.setEnabled(True)
 
     def open_missing_event_dialog(self):
         """Open dialog for entering missing events"""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Add Missing Event")
-        dialog.setModal(True)
-        dialog.setMinimumWidth(400)
-
-        layout = QVBoxLayout(dialog)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
-
-        # Title
-        title_label = QLabel("Enter Missing Event Details")
-        title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title_label)
-
-        # Event selection
-        event_label = QLabel("Select Event:")
-        event_label.setFont(QFont("Arial", 11))
-        layout.addWidget(event_label)
-
-        event_combo = QComboBox()
-        event_combo.addItems([
-            "DBS Programming Session",
-            "Clinical Interview",
-            "Lounge Activity",
-            "Surprise",
-            "VR-PAAT",
-            "Sleep Period",
-            "Meal",
-            "Social",
-            "Break",
-            "IPG Charging",
-            "CTM Disconnect",
-            "Walk",
-            "Snack",
-            "Resting state",
-            "Other",
-        ])
-        event_combo.setFont(QFont("Arial", 11))
-        event_combo.setStyleSheet(
-            """
-            QComboBox {
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-            }
-            QComboBox:focus {
-                border-color: #3498db;
-            }
-        """
+        # Pass event options from configuration
+        dialog = MissingEventDialog(
+            self, 
+            submit_callback=self.submit_missing_event,
+            event_options=self.config.event_display_names
         )
-        layout.addWidget(event_combo)
-
-        # Start time
-        start_label = QLabel("Start Time:")
-        start_label.setFont(QFont("Arial", 11))
-        layout.addWidget(start_label)
-
-        start_time_edit = QTimeEdit()
-        start_time_edit.setDisplayFormat("HH:mm:ss")
-        start_time_edit.setTime(QTime.currentTime())
-        start_time_edit.setFont(QFont("Arial", 11))
-        start_time_edit.setStyleSheet(
-            """
-            QTimeEdit {
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-            }
-            QTimeEdit:focus {
-                border-color: #3498db;
-            }
-        """
-        )
-        layout.addWidget(start_time_edit)
-
-        # End time
-        end_label = QLabel("End Time:")
-        end_label.setFont(QFont("Arial", 11))
-        layout.addWidget(end_label)
-
-        end_time_edit = QTimeEdit()
-        end_time_edit.setDisplayFormat("HH:mm:ss")
-        end_time_edit.setTime(QTime.currentTime())
-        end_time_edit.setFont(QFont("Arial", 11))
-        end_time_edit.setStyleSheet(
-            """
-            QTimeEdit {
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-            }
-            QTimeEdit:focus {
-                border-color: #3498db;
-            }
-        """
-        )
-        layout.addWidget(end_time_edit)
-
-        # Optional notes
-        notes_label = QLabel("Optional Notes:")
-        notes_label.setFont(QFont("Arial", 11))
-        layout.addWidget(notes_label)
-
-        notes_input = QLineEdit()
-        notes_input.setPlaceholderText("Enter optional notes...")
-        notes_input.setFont(QFont("Arial", 11))
-        notes_input.setStyleSheet(
-            """
-            QLineEdit {
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-            }
-        """
-        )
-        layout.addWidget(notes_input)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(10)
-
-        submit_button = QPushButton("Submit")
-        submit_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
-        submit_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: 2px solid #27ae60;
-                border-radius: 5px;
-                padding: 10px 20px;
-            }
-            QPushButton:hover {
-                background-color: #229954;
-                border-color: #229954;
-            }
-        """
-        )
-        submit_button.clicked.connect(
-            lambda: self.submit_missing_event(
-                dialog,
-                event_combo.currentText(),
-                start_time_edit.time(),
-                end_time_edit.time(),
-                notes_input.text(),
-            )
-        )
-        button_layout.addWidget(submit_button)
-
-        cancel_button = QPushButton("Cancel")
-        cancel_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
-        cancel_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #95a5a6;
-                color: white;
-                border: 2px solid #95a5a6;
-                border-radius: 5px;
-                padding: 10px 20px;
-            }
-            QPushButton:hover {
-                background-color: #7f8c8d;
-                border-color: #7f8c8d;
-            }
-        """
-        )
-        cancel_button.clicked.connect(dialog.reject)
-        button_layout.addWidget(cancel_button)
-
-        layout.addLayout(button_layout)
-
         dialog.exec()
 
-    def submit_missing_event(self, dialog, event_name, start_qtime, end_qtime, user_notes=""):
+    def submit_missing_event(self, event_name, start_qtime, end_qtime, user_notes=""):
         """Submit missing event to CSV"""
         # Get current date
         current_date = datetime.now().strftime("%Y-%m-%d")
@@ -778,22 +394,9 @@ class EventLogger(QMainWindow):
         start_time_str = start_qtime.toString("HH:mm:ss")
         end_time_str = end_qtime.toString("HH:mm:ss")
 
-        # Validate that end time is after start time
-        if end_qtime <= start_qtime:
-            QMessageBox.warning(
-                dialog,
-                "Invalid Time Range",
-                "End time must be after start time.",
-            )
-            return
-
         # Create datetime objects for logging
-        start_datetime = datetime.strptime(
-            f"{current_date} {start_time_str}", "%Y-%m-%d %H:%M:%S"
-        )
-        end_datetime = datetime.strptime(
-            f"{current_date} {end_time_str}", "%Y-%m-%d %H:%M:%S"
-        )
+        start_datetime = datetime.strptime(f"{current_date} {start_time_str}", "%Y-%m-%d %H:%M:%S")
+        end_datetime = datetime.strptime(f"{current_date} {end_time_str}", "%Y-%m-%d %H:%M:%S")
 
         # Combine "Missing event" with user notes
         notes = "Missing event"
@@ -803,18 +406,10 @@ class EventLogger(QMainWindow):
         # Log the event
         self.log_event(event_name, start_datetime, end_datetime, notes)
 
-        # Show confirmation
-        QMessageBox.information(
-            dialog,
-            "Success",
-            f"Missing event '{event_name}' has been logged successfully.",
-        )
-
         # Play beep feedback
         self.play_beep()
-
-        # Close dialog
-        dialog.accept()
+        
+        return True  # Indicate success
 
     def toggle_event(self, event_name, button):
         """Toggle an event on/off"""
@@ -826,7 +421,7 @@ class EventLogger(QMainWindow):
             self.log_event(event_name, start_time, datetime.now(), notes)
 
             # Update UI - restore original button style
-            self.restore_button_style(button, event_name)
+            button.setStyleSheet(EVENT_BUTTON_NORMAL_STYLE)
             self.current_event = None
             self.active_button = None
             self.notes_input.clear()
@@ -839,16 +434,13 @@ class EventLogger(QMainWindow):
 
             # Deactivate previous button
             if self.active_button:
-                for btn_name, btn in self.event_buttons.items():
-                    if btn == self.active_button:
-                        self.restore_button_style(btn, btn_name)
-                        break
+                self.active_button.setStyleSheet(EVENT_BUTTON_NORMAL_STYLE)
 
             # Start new event
             self.active_events[event_name] = datetime.now()
 
             # Update UI - set active style
-            self.set_active_button_style(button)
+            button.setStyleSheet(EVENT_BUTTON_ACTIVE_STYLE)
             self.current_event = event_name
             self.active_button = button
             self.disable_all_buttons_except(button)
@@ -857,50 +449,10 @@ class EventLogger(QMainWindow):
         # Play audio feedback
         self.play_beep()
 
-    def restore_button_style(self, button, event_name):
-        """Restore button to its original blue style"""
-        button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                border: 4px solid #3498db;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-                border-color: #2980b9;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-        """
-        )
-
-    def set_active_button_style(self, button):
-        """Set button to active (teal) style"""
-        button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #1abc9c !important;
-                color: white !important;
-                border: 4px solid #1abc9c !important;
-            }
-            QPushButton:hover {
-                background-color: #16a085 !important;
-                border-color: #16a085 !important;
-            }
-            QPushButton:pressed {
-                background-color: #16a085 !important;
-            }
-        """
-        )
-
     def abort_event(self):
         """Abort the current active event"""
         if not self.active_events:
-            QMessageBox.information(
-                self, "No Active Event", "No active event to abort."
-            )
+            show_info_message(self, "No Active Event", "No active event to abort.")
             return
 
         notes = self.notes_input.text()
@@ -915,7 +467,7 @@ class EventLogger(QMainWindow):
 
         # Update UI
         if self.active_button:
-            self.restore_button_style(self.active_button, event_name)
+            self.active_button.setStyleSheet(EVENT_BUTTON_NORMAL_STYLE)
 
         self.current_event = None
         self.active_button = None
@@ -928,78 +480,92 @@ class EventLogger(QMainWindow):
 
     def log_event(self, event_name, start_time, end_time, notes=""):
         """Log an event to the CSV file"""
-        end_date = end_time.strftime("%Y-%m-%d") if end_time else "N/A"
-        end_time_str = end_time.strftime("%H:%M:%S") if end_time else "N/A"
-
-        data = [
-            event_name,
-            start_time.strftime("%Y-%m-%d"),
-            start_time.strftime("%H:%M:%S"),
-            end_date,
-            end_time_str,
-            notes,
-        ]
-
-        with open(self.data_file, "a", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(data)
-
-        print(f"Logged event to {os.path.abspath(self.data_file)}:")
-        print(f"  Event: {event_name}")
-        print(f"  Start: {start_time}")
-        print(f"  End: {end_time}")
-        print(f"  Notes: {notes}")
+        log_to_csv(self.data_file, event_name, start_time, end_time, notes)
 
     def closeEvent(self, event):
         """Handle application close"""
         if self.active_events:
-            reply = QMessageBox.question(
-                self,
-                "Active Event",
-                "There is an active event. Do you want to abort it before closing?",
-                QMessageBox.StandardButton.Yes
-                | QMessageBox.StandardButton.No
-                | QMessageBox.StandardButton.Cancel,
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setWindowTitle("Active Event")
+            msg_box.setText("There is an active event. Do you want to abort it before closing?")
+            msg_box.setStandardButtons(
+                QMessageBox.StandardButton.Yes | 
+                QMessageBox.StandardButton.No | 
+                QMessageBox.StandardButton.Cancel
             )
+            msg_box.setStyleSheet(MESSAGE_BOX_QUESTION_STYLE)
+            reply = msg_box.exec()
 
-            if reply == QMessageBox.StandardButton.Yes:
-                self.abort_event()
-                event.accept()
-            elif reply == QMessageBox.StandardButton.No:
-                event.accept()
-            else:
+            if reply == QMessageBox.StandardButton.Cancel:
                 event.ignore()
-        else:
-            event.accept()
+                return
+            elif reply == QMessageBox.StandardButton.Yes:
+                self.abort_event()
+
+        event.accept()
 
 
 def main():
+    """Main application entry point"""
     app = QApplication(sys.argv)
 
     # Set application properties
-    app.setApplicationName("TRBD Event Logger")
+    app.setApplicationName("Event Logger")
     app.setApplicationVersion("2.0")
     app.setOrganizationName("Baylor College of Medicine")
 
-    # Get project ID from command line
-    project_id = ""
-    if len(sys.argv) >= 2:
-        project_id = sys.argv[1]
+    # Step 1: Select configuration
+    config_dialog = ConfigSelectionDialog()
+    if config_dialog.exec() != QDialog.DialogCode.Accepted:
+        sys.exit(0)
+    
+    selected_config_name = config_dialog.selected_config
+    config = AppConfig(selected_config_name)
 
-    # Show startup dialog
-    startup_dialog = StartupDialog()
+    # Get patient ID from command line if provided
+    patient_id = ""
+    if len(sys.argv) >= 2:
+        patient_id = sys.argv[1]
+
+    # Step 2: Show startup dialog for session start recording
+    startup_dialog = StartupDialog(app_name=config.app_name)
     if startup_dialog.exec() != QDialog.DialogCode.Accepted:
-        # User closed the dialog without choosing, exit app
         sys.exit(0)
 
-    # Get whether to record session start
-    record_start = startup_dialog.record_start
+    # Get whether to record session start (or use config default)
+    record_start = startup_dialog.record_start or config.record_start_time
 
-    # Create and show the main window
-    window = EventLogger(project_id, record_start)
+    # Step 3: Create and show the main window
+    window = EventLogger(config, patient_id, record_start)
     window.show()
 
-    sys.exit(app.exec())
+    # Run the Qt event loop and capture its exit code
+    exit_code = app.exec()
+
+    # Step 4: Run source parser if configured (NBU only)
+    if getattr(window, "run_parser", False) and config.parser_path:
+        print(f"\nRunning source parser: {config.parser_path}")
+        try:
+            result = subprocess.run(
+                config.parser_path,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                shell=True
+            )
+            print("✓ Logger source parser completed successfully")
+            print("  Check Elias for processed files")
+        except subprocess.CalledProcessError as e:
+            print("✗ Error running logger source parser")
+            print(f"  STDOUT: {e.stdout}")
+            print(f"  STDERR: {e.stderr}")
+        except Exception as e:
+            print(f"✗ Unexpected error: {e}")
+
+    # Exit with the same code returned by the Qt event loop
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

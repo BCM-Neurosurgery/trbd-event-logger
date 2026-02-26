@@ -1,6 +1,6 @@
 """
 Dialog classes for TRBD Event Logger
-Contains StartupDialog and MissingEventDialog
+Contains ConfigSelectionDialog, StartupDialog and MissingEventDialog
 """
 
 from PyQt6.QtWidgets import (
@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTime
 from PyQt6.QtGui import QFont
 
-from constants import MISSING_EVENT_OPTIONS, DEFAULT_FONT_FAMILY
+from constants import DEFAULT_FONT_FAMILY
 from styles import (
     DIALOG_BACKGROUND_STYLE,
     STARTUP_TITLE_STYLE,
@@ -25,6 +25,7 @@ from styles import (
     STARTUP_RECORD_BUTTON_STYLE,
     STARTUP_SKIP_BUTTON_STYLE,
     DIALOG_TITLE_STYLE,
+    CONFIG_SELECTION_COMBOBOX_STYLE,
     MISSING_EVENT_COMBOBOX_STYLE,
     MISSING_EVENT_TIMEEDIT_STYLE,
     MISSING_EVENT_LINEEDIT_STYLE,
@@ -35,17 +36,98 @@ from styles import (
 )
 
 
-class StartupDialog(QDialog):
-    """Startup dialog for session initialization"""
+class ConfigSelectionDialog(QDialog):
+    """Dialog for selecting configuration profile (Jamail or NBU)"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.selected_config = "NBU"  # Default
+        self.init_ui()
+
+    def init_ui(self):
+        """Initialize the configuration selection dialog UI"""
+        self.setWindowTitle("Event Logger - Configuration")
+        self.setModal(True)
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(300)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(25)
+        layout.setContentsMargins(40, 40, 40, 40)
+
+        # Title
+        title_label = QLabel("⚙️ Select Configuration")
+        title_label.setFont(QFont(DEFAULT_FONT_FAMILY, 22, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet(STARTUP_TITLE_STYLE)
+        layout.addWidget(title_label)
+
+        # Subtitle
+        subtitle_label = QLabel("Choose your deployment environment:")
+        subtitle_label.setFont(QFont(DEFAULT_FONT_FAMILY, 13))
+        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle_label.setStyleSheet(DIALOG_SUBTITLE_STYLE + " padding: 10px;")
+        layout.addWidget(subtitle_label)
+
+        # Configuration dropdown
+        config_label = QLabel("🖥️ Environment:")
+        config_label.setFont(QFont(DEFAULT_FONT_FAMILY, 12, QFont.Weight.DemiBold))
+        config_label.setStyleSheet(DIALOG_SUBTITLE_STYLE)
+        layout.addWidget(config_label)
+
+        self.config_combo = QComboBox()
+        self.config_combo.addItems(["NBU", "Jamail"])
+        self.config_combo.setFont(QFont(DEFAULT_FONT_FAMILY, 12))
+        self.config_combo.setStyleSheet(CONFIG_SELECTION_COMBOBOX_STYLE)
+        self.config_combo.setCurrentIndex(0)  # Default to NBU
+        layout.addWidget(self.config_combo)
+
+        # Info label
+        info_label = QLabel(
+            "1. NBU \n"
+            "2. Jamail"
+        )
+        info_label.setFont(QFont(DEFAULT_FONT_FAMILY, 10))
+        info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        info_label.setStyleSheet("QLabel { color: #7f8c8d; padding: 10px; }")
+        layout.addWidget(info_label)
+
+        # Spacer
+        layout.addStretch()
+
+        # Continue button
+        continue_button = QPushButton("✅ Continue")
+        continue_button.setFont(QFont(DEFAULT_FONT_FAMILY, 13, QFont.Weight.Bold))
+        continue_button.setMinimumHeight(60)
+        continue_button.setStyleSheet(STARTUP_RECORD_BUTTON_STYLE)
+        continue_button.clicked.connect(self.on_continue)
+        layout.addWidget(continue_button)
+
+        # Apply general styling
+        self.setStyleSheet(DIALOG_BACKGROUND_STYLE)
+
+    def on_continue(self):
+        """Handle continue button click"""
+        selected_text = self.config_combo.currentText()
+        if "Jamail" in selected_text:
+            self.selected_config = "Jamail"
+        else:
+            self.selected_config = "NBU"
+        self.accept()
+
+
+class StartupDialog(QDialog):
+    """Startup dialog for session initialization"""
+    
+    def __init__(self, parent=None, app_name="Event Logger"):
+        super().__init__(parent)
+        self.app_name = app_name
         self.record_start = False
         self.init_ui()
 
     def init_ui(self):
         """Initialize the startup dialog UI"""
-        self.setWindowTitle("TRBD Event Logger - Session Start")
+        self.setWindowTitle(f"{self.app_name} - Session Start")
         self.setModal(True)
         self.setMinimumWidth(600)
         self.setMinimumHeight(350)
@@ -55,7 +137,7 @@ class StartupDialog(QDialog):
         layout.setContentsMargins(40, 40, 40, 40)
 
         # Title
-        title_label = QLabel("🏥 Welcome to TRBD Event Logger")
+        title_label = QLabel(f"🏥 Welcome to {self.app_name}")
         title_label.setFont(QFont(DEFAULT_FONT_FAMILY, 20, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet(STARTUP_TITLE_STYLE)
@@ -111,9 +193,10 @@ class StartupDialog(QDialog):
 class MissingEventDialog(QDialog):
     """Dialog for entering missing events retroactively"""
     
-    def __init__(self, parent=None, submit_callback=None):
+    def __init__(self, parent=None, submit_callback=None, event_options=None):
         super().__init__(parent)
         self.submit_callback = submit_callback
+        self.event_options = event_options or []
         self.init_ui()
 
     def init_ui(self):
@@ -141,7 +224,7 @@ class MissingEventDialog(QDialog):
         layout.addWidget(event_label)
 
         self.event_combo = QComboBox()
-        self.event_combo.addItems(MISSING_EVENT_OPTIONS)
+        self.event_combo.addItems(self.event_options)
         self.event_combo.setFont(QFont(DEFAULT_FONT_FAMILY, 11))
         self.event_combo.setStyleSheet(MISSING_EVENT_COMBOBOX_STYLE)
         layout.addWidget(self.event_combo)

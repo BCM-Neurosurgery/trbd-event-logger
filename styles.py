@@ -252,13 +252,73 @@ MISSING_EVENT_COMBOBOX_STYLE = f"""
     }}
     QComboBox::drop-down {{
         border: none;
+        width: 30px;
+        background: transparent;
+    }}
+    QComboBox::down-arrow {{
+        image: none;
+        border: 2px solid #4a90e2;
+        width: 8px;
+        height: 8px;
+        border-top: none;
+        border-left: none;
+        transform: rotate(45deg);
+        margin-right: 8px;
     }}
     QComboBox QAbstractItemView {{
         background-color: white;
         color: #2c3e50;
         selection-background-color: #4a90e2;
         selection-color: white;
+        border: 1px solid #d5dce3;
     }}
+"""
+
+# Config selection combobox style with prominent dropdown arrow
+CONFIG_SELECTION_COMBOBOX_STYLE = """
+    QComboBox {
+        padding: 12px;
+        padding-right: 40px;
+        border: 2px solid #d5dce3;
+        border-radius: 8px;
+        background-color: white;
+        color: #2c3e50;
+        font-size: 13px;
+    }
+    QComboBox:focus {
+        border-color: #4a90e2;
+    }
+    QComboBox::drop-down {
+        subcontrol-origin: padding;
+        subcontrol-position: center right;
+        width: 35px;
+        border: none;
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 #e8f4f8, stop:1 #d5e9f2);
+        border-top-right-radius: 6px;
+        border-bottom-right-radius: 6px;
+    }
+    QComboBox::down-arrow {
+        image: none;
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 8px solid #4a90e2;
+        margin-right: 10px;
+    }
+    QComboBox::down-arrow:hover {
+        border-top-color: #2c3e50;
+    }
+    QComboBox QAbstractItemView {
+        background-color: white;
+        color: #2c3e50;
+        selection-background-color: #4a90e2;
+        selection-color: white;
+        border: 2px solid #4a90e2;
+        border-radius: 4px;
+        padding: 5px;
+    }
 """
 
 MISSING_EVENT_TIMEEDIT_STYLE = f"""
