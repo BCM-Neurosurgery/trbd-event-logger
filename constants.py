@@ -19,6 +19,7 @@ EVENT_BUTTONS = [
     ("🚶 Walk", "Walk"),
     ("🍿 Snack", "Snack"),
     ("🧘 Resting State", "Resting state"),
+    ("Clinical Scales", "Clinical Scales"),
     ("📝 Other", "Other"),
 ]
 
@@ -38,6 +39,7 @@ MISSING_EVENT_OPTIONS = [
     "🚶 Walk",
     "🍿 Snack",
     "🧘 Resting state",
+    "Clinical Scales",
     "📝 Other",
 ]
 
