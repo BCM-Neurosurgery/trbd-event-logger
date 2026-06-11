@@ -38,6 +38,7 @@ CONFIGS = {
         "events": [
             ("🧠 DBS Programming", "DBS Programming Session"),
             ("💬 Clinical Interview", "Clinical Interview"),
+            ("✅ Clinical Scales", "Clinical Scales"),
             ("🛋️ Lounge Activity", "Lounge Activity"),
             ("🎉 Surprise", "Surprise"),
             ("🥽 VR-PAAT", "VR-PAAT"),

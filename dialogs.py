@@ -35,6 +35,8 @@ from styles import (
     MESSAGE_BOX_SUCCESS_STYLE,
 )
 
+VALID_IDS = ['AA', 'TRBD', 'P']
+
 
 class ConfigSelectionDialog(QDialog):
     """Dialog for selecting configuration profile (Jamail or NBU)"""
@@ -115,6 +117,95 @@ class ConfigSelectionDialog(QDialog):
             self.selected_config = "NBU"
         self.accept()
 
+class PatientDialog(QDialog):
+    def __init__(self, parent=None, app_name="Event Logger"):
+        super().__init__(parent)
+        self.app_name = app_name
+        self.record_start = False
+        self.init_ui()
+    
+    def init_ui(self):
+        # Patient ID section
+        self.setWindowTitle(f"{self.app_name} - Session Start")
+        self.setModal(True)
+        self.setMinimumWidth(600)
+        self.setMinimumHeight(350)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(30)
+        layout.setContentsMargins(40, 40, 40, 40)
+
+        patient_label = QLabel("Patient ID:")
+        patient_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        patient_label.setStyleSheet("QLabel { color: #2c3e50; }")
+        layout.addWidget(patient_label)
+
+        self.patient_id_input = QLineEdit()
+        self.patient_id_input.setPlaceholderText("Enter patient ID...")
+        self.patient_id_input.setFont(QFont("Arial", 12))
+        self.patient_id_input.setMinimumHeight(40)
+        self.patient_id_input.setStyleSheet(
+            """
+            QLineEdit {
+                padding: 10px;
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                font-size: 12px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #3498db;
+            }
+        """
+        )
+        layout.addWidget(self.patient_id_input)
+
+        # Spacer
+        layout.addStretch()
+
+        # Continue button
+        continue_button = QPushButton("Continue")
+        continue_button.setFont(QFont("Arial", 13, QFont.Weight.Bold))
+        continue_button.setMinimumHeight(60)
+        continue_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: 3px solid #3498db;
+                border-radius: 10px;
+                padding: 15px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+                border-color: #2980b9;
+            }
+            QPushButton:pressed {
+                background-color: #2471a3;
+            }
+        """
+        )
+        continue_button.clicked.connect(self.on_continue)
+        layout.addWidget(continue_button)
+
+        # Apply general styling
+        self.setStyleSheet(
+            """
+            QDialog {
+                background-color: #f8f9fa;
+            }
+        """
+        )
+
+    def on_continue(self):
+        """Validate patient ID and continue"""
+        if not self.patient_id_input.text().strip():
+            QMessageBox.warning(self, "Missing Patient ID", "Please enter a patient ID before continuing.")
+            return
+        self.patient_id = self.patient_id_input.text().strip()
+        if self.patient_id[:-3] not in VALID_IDS:
+            QMessageBox.warning(self, "Invalid Patient ID", f"Patient ID must start with a valid identifier ({', '.join(VALID_IDS)}).")
+            return
+        self.accept()
 
 class StartupDialog(QDialog):
     """Startup dialog for session initialization"""

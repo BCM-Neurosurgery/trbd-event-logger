@@ -58,7 +58,7 @@ from styles import (
     MESSAGE_BOX_WARNING_STYLE,
     MESSAGE_BOX_QUESTION_STYLE,
 )
-from dialogs import ConfigSelectionDialog, StartupDialog, MissingEventDialog
+from dialogs import ConfigSelectionDialog, StartupDialog, MissingEventDialog, PatientDialog
 from utils import (
     calculate_duration,
     log_to_csv,
@@ -523,10 +523,12 @@ def main():
     selected_config_name = config_dialog.selected_config
     config = AppConfig(selected_config_name)
 
-    # Get patient ID from command line if provided
-    patient_id = ""
-    if len(sys.argv) >= 2:
-        patient_id = sys.argv[1]
+    # Get patient ID from patient dialog
+    patient_dialog = PatientDialog()
+
+    if patient_dialog.exec() != QDialog.DialogCode.Accepted:
+        sys.exit(0)
+    patient_id = patient_dialog.patient_id
 
     # Step 2: Show startup dialog for session start recording
     startup_dialog = StartupDialog(app_name=config.app_name)
