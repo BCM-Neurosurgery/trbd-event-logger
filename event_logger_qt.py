@@ -146,7 +146,7 @@ class EventLogger(QMainWindow):
                 writer = csv.writer(csvfile)
                 writer.writerow(CSV_HEADERS)
 
-            if self.record_start_time:
+            if self.record_session_start:
                 self.record_session_start()
 
     def record_session_start(self):
