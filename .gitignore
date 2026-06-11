@@ -23,8 +23,6 @@ Thumbs.db
 *.log
 *.csv
 
-# App build
-dist/
+# App Build
 build/
-
-config.py
+*.exe
