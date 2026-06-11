@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-Unified Event Logger for TRBD Clinical Trial
-Supports multiple deployment configurations (Jamail, NBU)
+Qt Event Logger
 Cross-platform desktop application with reliable audio feedback
 
 @author Yewen
-@version 2.0 02/18/2026
+@version 1.0 08/07/2025
+
+@author Nikhil, Jeff
+@version 2.0 02/23/2026
 """
 
 import sys
 import os
+import subprocess
 import csv
 import subprocess
 from datetime import datetime
@@ -142,6 +145,9 @@ class EventLogger(QMainWindow):
             with open(self.data_file, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(CSV_HEADERS)
+
+            if self.record_start_time:
+                self.record_session_start()
 
     def record_session_start(self):
         """Record session start time to CSV"""
